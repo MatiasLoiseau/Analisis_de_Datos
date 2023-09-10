@@ -1,0 +1,219 @@
+---
+title: "Ejemplo de aplicación: Regresión por componentes principales"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(rstudioapi)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+```
+
+```{r}
+data(crimeData, package = "mogavs")
+```
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+glimpse(crimeData)
+```
+
+La base de datos tiene 1994 registros y 123 variables. El número de variables es muy alto.
+
+Para más detalles sobre esta base de datos, consultar <https://archive.ics.uci.edu/ml/datasets/communities+and+crime>.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+attributes(crimeData)$names
+```
+
+El atributo `y` es la variable dependiente.
+
+## Correlación
+
+Realicemos un correlograma.
+
+```{r, message=FALSE, warning=FALSE}
+library(corrplot)
+```
+
+```{r}
+correlaciones <- cor(crimeData[-crimeData$y], method = "pearson")
+corrplot::corrplot(correlaciones, method = "color", tl.pos = "n")
+```
+
+Podemos observar fuertes relaciones lineales positivas (azul oscuro) y negativas (bordó), por lo que el PCA es necesario.
+
+## Regresión con componentes principales
+
+```{r, message=FALSE, warning=FALSE}
+library(pls)
+```
+
+Recordemos que las variables deben estar estandarizadas, por lo que vamos a habilitar la opción `scale`.
+
+```{r}
+modelo <- pcr(formula = y ~ .,
+              data = crimeData,
+              scale = TRUE,
+              validation = "CV" # for defecto usa 10-folds
+              )
+```
+
+Podemos graficar los coeficientes del modelo.
+
+```{r}
+coefplot(modelo, col = "purple")
+```
+
+También podemos graficar los valores predichos versus los valores verdaderos eligiendo la cantidad de componentes principales.
+
+```{r}
+# Usando todas las componentes principales
+predplot(modelo, col = "pink", pch = 16, line = TRUE, line.col = "purple", line.lwd = 2)
+
+# Usando las primeras 8 componentes principales
+predplot(modelo, ncomp = 8, col = "pink", pch = 16, line = TRUE, line.col = "purple", line.lwd = 2)
+
+# Usando las primeras 2 componentes principales
+predplot(modelo, ncomp = 2, col = "pink", pch = 16, line = TRUE, line.col = "purple", line.lwd = 2)
+
+```
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+summary(modelo)
+```
+
+La tabla `TRAINING` indica los porcentajes de varianza explicada. Podemos observar lo siguiente:
+
+-   Si usamos la primera componente principal, podemos explicar el $21.54\%$ de la variación de la variable respuesta.
+
+-   Si agregamos la segunda componente principal, podemos explicar el $36.59\%$ de la variación de la variable respuesta.
+
+-   Para poder explicar al menos el $95\%$ de la variación de la variable respuesta, necesitamos usar las primeras 41 componentes principales.
+
+## Elección de la cantidad de componentes principales
+
+[**RMSE**]{.underline}
+
+Podemos elegir el criterio de minimizar el valor de la raíz cuadrada del error cuadrático medio calculado por la validación cruzada de $k$-folds.
+
+De la misma salida de `summary(modelo)`, podemos observar a partir de la tabla `VALIDATION: RMSEP` que si usamos el término independiente del modelo, el RMSE es igual a $0.233$. Si agregamos la primera componente principal, el RMSE se reduce a $0.1879$, mientras que si también agregamos la segunda componente, el RMSE se reduce un poco más, con un valor igual a $0.1714$.
+
+Podemos graficar estos resultados.
+
+```{r}
+validationplot(modelo, val.type = "RMSEP", col = c("pink", "purple"))
+```
+
+La línea rosa indica en valor dado por la validación cruzada, y la línea punteada violeta el valor corregido.
+
+Repitamos la visualización pero con las primeras 10 componentes principales.
+
+```{r}
+validationplot(modelo, val.type = "RMSEP", col = c("pink", "purple"), xlim=c(0,10))
+```
+
+Pareciera ser que 8 componentes principales es una buena elección.
+
+[**MSE**]{.underline}
+
+Podemos elegir el criterio del menor error cuadrático medio calculado por la validación cruzada de $k$-folds.
+
+Podemos graficar estos resultados.
+
+```{r}
+validationplot(modelo, val.type = "MSEP", col = c("pink", "purple"))
+```
+
+La línea rosa indica en valor dado por la validación cruzada, y la línea punteada violeta el valor corregido.
+
+Repitamos la visualización pero con las primeras 10 componentes principales.
+
+```{r}
+validationplot(modelo, val.type = "MSEP", col = c("pink", "purple"), xlim=c(0,10))
+```
+
+Como es de esperar, pareciera ser que 8 componentes principales es una buena elección.
+
+[**R2**]{.underline}
+
+Podemos elegir el criterio del mayor $R^2$, mediante el siguiente gráfico.
+
+```{r}
+validationplot(modelo, val.type = "R2", col = "pink")
+```
+
+Repitamos la visualización pero con las primeras 10 componentes principales.
+
+```{r}
+validationplot(modelo, val.type = "R2", col = "pink", xlim=c(0,10))
+```
+
+Nuevamente, pareciera ser que 8 componentes principales es una buena elección.
+
+## Predicciones
+
+Primero vamos a dividir a los datos en conjuntos de entrenamiento y prueba.
+
+```{r, message=FALSE, warning=FALSE}
+library(caret)
+```
+
+```{r}
+set.seed(1911)
+
+muestras <- crimeData$y %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+
+entrenamiento <- crimeData[muestras,]
+prueba <- crimeData[-muestras,]
+```
+
+Definimos el modelo usando el conjunto de entrenamiento.
+
+```{r}
+modelo_RLPC <- pcr(formula = y ~ .,
+              data = entrenamiento,
+              scale = TRUE
+              )
+```
+
+Calculamos las predicciones usando el conjunto de prueba.
+
+```{r}
+predicciones <- predict(modelo_RLPC, prueba)
+```
+
+Calculamos el RMSE.
+
+```{r}
+sqrt(mean(predicciones - prueba$y)^2)
+```
+
+Calculemos las predicciones usando las 8 primeras componentes principales.
+
+```{r}
+predicciones8 <- predict(modelo_RLPC, prueba, ncomp = 8)
+sqrt(mean(predicciones8 - prueba$y)^2)
+```
+
+Observamos que la raíz del error cuadrático medio se redujo.
+
+¿Qué sucede si aplicamos el método clásico de regresión lineal?
+
+```{r}
+modelo_RL <- lm(formula = y ~ .,
+                data = entrenamiento)
+pred <- predict(modelo_RL, prueba)
+sqrt(mean(pred - prueba$y)^2)
+```
+
+Obtenemos un valor mayor para RMSE, aunque la diferencia no es extrema. Quizá para los datos usados en el ejemplo, usar una regresión lineal con componentes principales no proporcione demasiadas ventajas.

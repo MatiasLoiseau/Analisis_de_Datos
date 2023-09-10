@@ -1,0 +1,373 @@
+---
+title: "Distancia Euclídea y de Mahalanobis"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+data("airquality")
+```
+
+Como los datos de temperatura están medidos en grados Farenheit, vamos a convertirlos en grados Celsius.
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(weathermetrics)
+```
+
+```{r}
+aire <- airquality %>%
+  mutate(Temperatura = round(fahrenheit.to.celsius(Temp), digits = 1))
+aire
+```
+
+Además, convertimos los datos del viento que es están medido en millas por hora a kilómetros por hora.
+
+```{r}
+aire <- aire %>%
+  mutate(Viento = round(Wind * 1.60934, digits = 1))
+aire
+```
+
+Exploramos las relaciones entre algunos pares de variables.
+
+```{r, warning=FALSE}
+library(ggplot2)
+```
+
+```{r}
+# Scatterplot de las variables viento y temperatura
+ggplot(aire, aes(x = Viento, y = Temperatura)) +
+  geom_point(col = "violet") +
+  xlab("Viento (km/h)") +
+  ylab("Temperatura (Cº)")
+
+# Scatterplot de las variables radiación solar y temperatura
+ggplot(aire, aes(x = Solar.R, y = Temperatura)) +
+  geom_point(col = "violet") +
+  xlab("Radiación solar (Ly)") + # unidad de medida Langley 
+  ylab("Temperatura (Cº)")
+
+```
+
+A partir de los warnings, observamos que hay valores faltantes, por lo que vamos a quitarlos.
+
+```{r}
+aire <- aire %>%
+  drop_na()
+```
+
+Por simplicidad, vamos a dar acceso a los objetos de la base de datos con la cual vamos a trabajar.
+
+```{r}
+attach(aire)
+```
+
+Definimos los conjuntos de datos para los dos casos de estudio.
+
+```{r}
+vt <- as.data.frame(cbind(Viento, Temperatura)) # guardamos sólo las variables viento y temperatura
+rt <- as.data.frame(cbind(Solar.R, Temperatura)) # guardamos sólo las variables radiación solar y temperatura
+
+head(vt)
+head(rt)
+```
+
+## Distancia euclídea
+
+Calculamos las distancias euclídeas de las variables seleccionadas.
+
+```{r}
+
+DE_vt <- dist(vt, method = "euclidean") # vector con las distancias
+Mat_DE_vt <- as.matrix(DE_vt) # distancias en formato matricial
+View(Mat_DE_vt) # Visualización del resultado
+
+DE_rt <- dist(rt, method = "euclidean") 
+Mat_DE_rt <- as.matrix(DE_rt) 
+View(Mat_DE_rt)
+```
+
+Miramos las medidas descriptivas clásicas.
+
+```{r}
+Med_DE_vt <- summary(DE_vt)
+Med_DE_rt <- summary(DE_rt)
+
+Med_DE_vt
+Med_DE_rt
+```
+
+Estandarizamos los datos.
+
+```{r}
+# Calculamos las medias
+muV <- mean(Viento)
+muT <- mean(Temperatura)
+muR <- mean(Solar.R)
+
+# Calculamos los desvíos
+sV <- sd(Viento)
+sT <- sd(Temperatura)
+sR <- sd(Solar.R)
+
+# Armamos data set con las variables estandarizadas
+aire_st <- data.frame(Viento = (Viento - muV) / sV,
+                      Temperatura = (Temperatura - muT) / sT,
+                      Radiación = (Solar.R - muR) / sR)
+
+head(aire_st)
+```
+
+Calculamos las distancias euclídeas de los datos estandarizados al origen de coordenadas.
+
+```{r}
+# Agregamos el origen como una observación
+aire_st <- rbind(c(0, 0, 0), aire_st)
+
+# Elegimos las variables de cada caso de estudio
+
+vt_st <- aire_st %>% 
+  select(Viento, Temperatura)
+
+rt_st <- aire_st %>% 
+  select(Radiación, Temperatura)
+
+# Nos quedamos con la primera columna que indica la distancia al origen
+
+vt_st$Dist <- (vt_st %>%
+                 dist %>% 
+                 as.matrix)[,1]
+
+rt_st$Dist <- (rt_st %>%
+                 dist %>% 
+                 as.matrix)[,1]
+
+head(vt_st)
+head(rt_st)
+```
+
+```{r}
+# Agregamos el orden de las distancias para establecer un ranking
+
+vt_st$Dist.order <- (rank(vt_st$Dist) - 1) %>% as.integer
+rt_st$Dist.order <- (rank(rt_st$Dist) - 1) %>% as.integer
+
+head(vt_st)
+head(rt_st)
+```
+
+Graficamos los puntos ponderando su distancia al origen.
+
+```{r}
+ggplot(data=vt_st, aes(x = Viento, y = Temperatura, color = Dist)) +
+  geom_point() + 
+  geom_text(aes(label = Dist.order), size = 3, hjust=0, vjust=1.5) + 
+  labs(color = "Distancia euclídea") +
+  scale_colour_gradient(limits=c(0, 3.2), low="darkorchid4", high="pink2") +
+  theme(axis.text = element_text(size=7))
+
+ggplot(data=rt_st, aes(x = Radiación, y = Temperatura, color = Dist)) +
+  geom_point() + 
+  geom_text(aes(label = Dist.order), size = 3, hjust=0, vjust=1.5) + 
+  labs(color = "Distancia euclídea") +
+  scale_colour_gradient(limits=c(0, 3.2), low="darkorchid4", high="pink2") +
+  theme(axis.text = element_text(size=7))
+```
+
+## Distancia de Mahalanobis
+
+```{r}
+# Calculamos los vectores de medias para cada caso de estudio
+
+mu_vt <- colMeans(vt)
+mu_vt
+
+mu_rt <- colMeans(rt)
+mu_rt
+```
+
+```{r}
+# Calculamos las matrices de covarianzas de cada caso de estudio
+
+Sigma_vt <- cov(vt)
+Sigma_vt
+
+Sigma_rt <- cov(rt)
+Sigma_rt
+```
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+# Calculamos las distancias de Mahalanobis
+
+DM_vt <- mahalanobis(x = vt , center = mu_vt , cov = Sigma_vt)
+DM_vt
+
+DM_rt <- mahalanobis(x = rt , center = mu_rt , cov = Sigma_rt)
+DM_rt
+```
+
+Vamos a visualizar los datos considerando el punto central y las covarianzas.
+
+```{r}
+# Definimos los tamaños de las elipses mediante la distribución chi cuadrado con distintos niveles de significancia
+rad99  = qchisq(p = 0.99 , df = 2)
+rad99  = sqrt(rad99)
+
+rad95  = qchisq(p = 0.95 , df = 2)
+rad95  = sqrt(rad95)
+
+rad90  = qchisq(p = 0.90 , df = 2)
+rad90  = sqrt(rad90)
+
+# Hallamos las coordenadas de las elipses
+
+elipse_vt99 <- car::ellipse(center = mu_vt , shape = Sigma_vt , radius = rad99 ,
+                        segments = 150 , draw = FALSE)
+
+elipse_vt95 <- car::ellipse(center = mu_vt , shape = Sigma_vt , radius = rad95 ,
+                        segments = 150 , draw = FALSE)
+
+elipse_vt90 <- car::ellipse(center = mu_vt , shape = Sigma_vt , radius = rad90 ,
+                        segments = 150 , draw = FALSE)
+
+elipse_rt99 <- car::ellipse(center = mu_rt , shape = Sigma_rt , radius = rad99 ,
+                        segments = 150 , draw = FALSE)
+
+elipse_rt95 <- car::ellipse(center = mu_rt , shape = Sigma_rt , radius = rad95 ,
+                        segments = 150 , draw = FALSE)
+
+elipse_rt90 <- car::ellipse(center = mu_rt , shape = Sigma_rt , radius = rad90 ,
+                        segments = 150 , draw = FALSE)
+```
+
+```{r}
+# Estructuramos los datos para el gráfico
+
+elipse_vt99 <- as.data.frame(elipse_vt99)
+colnames(elipse_vt99) <- colnames(vt)
+
+elipse_vt95 <- as.data.frame(elipse_vt95)
+colnames(elipse_vt95) <- colnames(vt)
+
+elipse_vt90 <- as.data.frame(elipse_vt90)
+colnames(elipse_vt90) <- colnames(vt)
+
+elipse_rt99 <- as.data.frame(elipse_rt99)
+colnames(elipse_rt99) <- colnames(rt)
+
+elipse_rt95 <- as.data.frame(elipse_rt95)
+colnames(elipse_rt95) <- colnames(rt)
+
+elipse_rt90 <- as.data.frame(elipse_rt90)
+colnames(elipse_rt90) <- colnames(rt)
+```
+
+```{r}
+# Viento vs temperatura con un 99% de significación
+ggplot(vt , aes(x = Viento , y = Temperatura)) +
+       geom_point(size = 2) +
+       geom_polygon(data = elipse_vt99, fill = "pink" , color = "violet" , alpha = 0.5)+
+       geom_point(aes(mu_vt[1] , mu_vt[2]) , size = 5 , color = "purple") +
+       geom_text(aes(label = row.names(vt)) , hjust = 1 , vjust = -1.5 ,size = 2.5 ) +
+  ggtitle(expression(alpha==0.99)) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Viento vs temperatura con un 95% de significación
+ggplot(vt , aes(x = Viento , y = Temperatura)) +
+       geom_point(size = 2) +
+       geom_polygon(data = elipse_vt95, fill = "pink" , color = "violet" , alpha = 0.5)+
+       geom_point(aes(mu_vt[1] , mu_vt[2]) , size = 5 , color = "purple") +
+       geom_text(aes(label = row.names(vt)) , hjust = 1 , vjust = -1.5 ,size = 2.5 ) +
+  ggtitle(expression(alpha==0.95)) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Viento vs temperatura con un 90% de significación
+ggplot(vt , aes(x = Viento , y = Temperatura)) +
+       geom_point(size = 2) +
+       geom_polygon(data = elipse_vt90, fill = "pink" , color = "violet" , alpha = 0.5)+
+       geom_point(aes(mu_vt[1] , mu_vt[2]) , size = 5 , color = "purple") +
+       geom_text(aes(label = row.names(vt)) , hjust = 1 , vjust = -1.5 ,size = 2.5 ) +
+  ggtitle(expression(alpha==0.90)) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Podemos observar lo siguiente:
+
+-   para $\alpha = 0.99$ la observación 30 queda fuera de la elipse;
+
+-   para $\alpha = 0.95$ las observaciones 7, 14 y 30 quedan fuera de la elipse;
+
+-   para $\alpha = 0.90$ las observaciones 7, 14, 26, 30, 79 y 88 quedan fuera de la elipse.
+
+```{r}
+# Radiación solar vs temperatura con un 99% de significación
+ggplot(rt , aes(x = Solar.R , y = Temperatura)) +
+       geom_point(size = 2) +
+       geom_polygon(data = elipse_rt99, fill = "pink" , color = "violet" , alpha = 0.5)+
+       geom_point(aes(mu_rt[1] , mu_rt[2]) , size = 5 , color = "purple") +
+       geom_text(aes(label = row.names(rt)) , hjust = 1 , vjust = -1.5 ,size = 2.5 ) +
+  ggtitle(expression(alpha==0.99)) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Radiación solar vs temperatura con un 95% de significación
+ggplot(rt , aes(x = Solar.R , y = Temperatura)) +
+       geom_point(size = 2) +
+       geom_polygon(data = elipse_rt95, fill = "pink" , color = "violet" , alpha = 0.5)+
+       geom_point(aes(mu_rt[1] , mu_rt[2]) , size = 5 , color = "purple") +
+       geom_text(aes(label = row.names(rt)) , hjust = 1 , vjust = -1.5 ,size = 2.5 ) +
+  ggtitle(expression(alpha==0.95)) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Radiación solar vs temperatura con un 90% de significación
+ggplot(rt , aes(x = Solar.R , y = Temperatura)) +
+       geom_point(size = 2) +
+       geom_polygon(data = elipse_rt90, fill = "pink" , color = "violet" , alpha = 0.5)+
+       geom_point(aes(mu_rt[1] , mu_rt[2]) , size = 5 , color = "purple") +
+       geom_text(aes(label = row.names(rt)) , hjust = 1 , vjust = -1.5 ,size = 2.5 ) +
+  ggtitle(expression(alpha==0.90)) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Podemos observar lo siguiente:
+
+-   para $\alpha = 0.99$ ninguna observación queda fuera de la elipse;
+
+-   para $\alpha = 0.95$ las observaciones 4 y 12 quedan fuera de la elipse;
+
+-   para $\alpha = 0.90$ las observaciones 4, 5, 7, 11, 12, 13, 14, 15, 17 y 19 quedan fuera de la elipse.
+
+## Detección de outliers
+
+```{r}
+# Establecemos los puntos de corte usando la distribución chi cuadrado con 2 grados de libertad (cantidad de variables), para los distintos niveles de significación 
+
+cutoff99 <- qchisq(p = 0.99 , df = 2)
+cutoff95 <- qchisq(p = 0.95 , df = 2)
+cutoff90 <- qchisq(p = 0.90 , df = 2)
+
+cutoff99
+cutoff95
+cutoff90
+```
+
+```{r}
+# Vemos los outliers detectados para el caso viento vs. temperatura
+
+vt[DM_vt > cutoff99,]
+vt[DM_vt > cutoff95,]
+vt[DM_vt > cutoff90,]
+```
+
+```{r}
+# Vemos los outliers detectados para el caso radiación solar vs. temperatura
+
+rt[DM_rt > cutoff99,]
+rt[DM_rt > cutoff95,]
+rt[DM_rt > cutoff90,]
+```
+
+Los resultados coinciden con lo que habíamos observado gráficamente.

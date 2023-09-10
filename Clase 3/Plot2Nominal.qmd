@@ -1,0 +1,90 @@
+---
+title: "Gráficos Bivariados con Variables Nominales"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+data(HairEyeColor)
+```
+
+```{r}
+View(HairEyeColor)
+```
+
+Las variables son:
+
+-   *Hair*: color de pelo, que puede ser Black, Brown, Red, Blonde;
+
+-   *Eye*: color de ojos, que puede ser Brown, Blue, Hazel, Green;
+
+-   *Sex*.
+
+```{r, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(tidyverse)
+```
+
+Vamos a darle cierta estructura a los datos.
+
+```{r}
+
+HairEyeColor <- as.data.frame(HairEyeColor)
+
+# No distinguimos entre sexo
+
+H <- HairEyeColor %>%
+  filter(Sex == "Male")
+
+M <- HairEyeColor %>%
+  filter(Sex == "Female")
+
+colores <- data.frame(Cabello = H$Hair, 
+                      Ojos = H$Eye,
+                      Frec = H$Freq + M$Freq)
+
+# Traducimos al castellano
+
+colores$Cabello <- as.vector(colores$Cabello)
+colores$Cabello[colores$Cabello == "Black"] <- "Negro"
+colores$Cabello[colores$Cabello == "Brown"] <- "Marrón"
+colores$Cabello[colores$Cabello == "Red"] <- "Rojo"
+colores$Cabello[colores$Cabello == "Blond"] <- "Rubio"
+
+colores$Ojos <- as.vector(colores$Ojos)
+colores$Ojos[colores$Ojos == "Brown"] <- "Marrón"
+colores$Ojos[colores$Ojos == "Blue"] <- "Azul"
+colores$Ojos[colores$Ojos == "Hazel"] <- "Avellana"
+colores$Ojos[colores$Ojos == "Green"] <- "Verde"
+```
+
+## Gráfico de barras agrupadas
+
+```{r}
+ggplot(colores, aes(x = Ojos, y = Frec, fill = factor(Cabello))) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  xlab("Color de ojos") +
+  ylab("") +
+  labs(fill = "Color de cabello")
+```
+
+Podemos observar, por ejemplo, que en todos los grupos hay más personas con cabello marrón, salvo en aquellas que tienen ojos azules donde hay muchas personas rubias.
+
+También vemos que hay muy pocas personas morochas de ojos verdes.
+
+## Gráfico de barras segmentadas
+
+```{r}
+ggplot(colores, aes(x = Ojos, y = Frec, fill = factor(Cabello))) + 
+  geom_bar(position = "stack", stat = "identity") +
+  xlab("Color de ojos") +
+  ylab("") +
+  labs(fill = "Color de cabello")
+```
+
+Vemos que la mayor proporción de personas con ojos marrones tienen cabello marrón. Mientras que el color de cabello es más equitativo en personas con ojos verdes.
+
+## 
+
+## 

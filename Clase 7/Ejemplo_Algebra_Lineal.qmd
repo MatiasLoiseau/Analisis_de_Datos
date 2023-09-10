@@ -1,0 +1,125 @@
+---
+title: "Ejemplo de aplicación: Herramientas de Álgebra Lineal"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(rstudioapi)
+library(readxl)
+library(tidyverse)
+```
+
+```{r}
+setwd(dirname(getActiveDocumentContext()$path))
+```
+
+```{r}
+estudiantes <- read_excel("student-mat.xlsx")
+```
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+glimpse(estudiantes)
+```
+
+Vamos a considerar las siguientes variables:
+
+-   *age*: edad de los y las estudiantes de un curso de matemática;
+
+-   *traveltime*: tiempo de viaje al colegio (medido en cuartos de hora);
+
+-   *absences*: cantidad de ausencias a la clase;
+
+-   *G3*: nota final del curso.
+
+Para más detalles sobre la base de datos, consultar <https://archive.ics.uci.edu/ml/datasets/Student+Performance>.
+
+```{r}
+estudiantes <- estudiantes %>%
+  dplyr::select(age, traveltime, absences, G3)
+```
+
+## Matriz de covarianzas
+
+```{r}
+Sigma = cov(estudiantes)
+Sigma
+```
+
+Veamos si es inversible, calculando su determinante.
+
+```{r}
+det(Sigma)
+```
+
+Como $\det(\Sigma) \ne 0$, la matriz de covarianzas es inversible.
+
+## Autovalores y autovectores
+
+Calculamos los autovalores de la matriz de covarianzas.
+
+```{r}
+autovalores <- eigen(Sigma)$values
+autovalores
+```
+
+Calculamos los autovectores de la matriz de covarianzas.
+
+```{r}
+autovectores <- eigen(Sigma)$vectors
+autovectores
+```
+
+Verifiquemos el resultado para el autovector asociado al primer autovalor.
+
+```{r}
+l1 <- autovalores[1]
+v1 <- autovectores[, 1]
+
+Sigma %*% v1
+l1 * v1
+```
+
+## Normalización
+
+Calculemos las normas de los autovectores.
+
+```{r}
+n1 <- sqrt(sum(autovectores[,1]^2))
+n2 <- sqrt(sum(autovectores[,2]^2))
+n3 <- sqrt(sum(autovectores[,3]^2))
+n4 <- sqrt(sum(autovectores[,4]^2))
+
+n1
+n2
+n3
+n4
+```
+
+Podemos observar que los autovectores ya están normalizados.
+
+## Ortogonalidad
+
+Verifiquemos que la matriz $Q$ que tiene por columnas a los vectores normalizados de la matriz de covarianzas es ortogonal; es decir, $QQ'=I$.
+
+```{r}
+Q <- autovectores
+round(Q %*% t(Q), 5)
+```
+
+## Descomposición
+
+Verifiquemos que:
+
+$$\Sigma = QDQ',$$
+
+donde $D$ es la matriz diagonal con los autovalores de la matriz de covarianzas en su diagonal principal.
+
+```{r}
+Q %*% diag(autovalores) %*% t(Q)
+
+Sigma
+```

@@ -1,0 +1,118 @@
+---
+title: "Ejemplo de aplicación: Regresión lineal simple"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(UsingR)
+```
+
+```{r}
+data(father.son)
+head(father.son)
+attach(father.son)
+```
+
+Vamos a usar la variables:
+
+-   *fheight*: altura del padre en pulgadas
+
+-   *sheight*: altura del hijo en pulgadas
+
+Como primer paso vamos a convertir las alturas de pulgadas a centímetros.
+
+```{r}
+padre <- round(2.54 * fheight)
+hijo <- round(2.54 * sheight)
+alturas <- data.frame(Padre = padre, Hijo = hijo)
+head(alturas)
+attach(alturas)
+```
+
+Realicemos un scatterplot.
+
+```{r, warning=FALSE}
+library(ggplot2)
+```
+
+```{r}
+ggplot(data = alturas, aes(x = Padre, y = Hijo)) +
+  geom_point(col = "violet") +
+  xlab("Altura del padre (en cm)") +
+  ylab("Altura del hijo (en cm)")
+```
+
+Pareciera haber una relación lineal positiva. Calculemos el coeficiente de correlación.
+
+```{r}
+cor(Padre, Hijo)
+```
+
+# Modelo de regresión lineal simple
+
+## Modelo
+
+```{r}
+reg_alturas <- lm(formula = Hijo ~ Padre, 
+                  data = alturas)
+```
+
+## Residuos
+
+```{r, warning=FALSE}
+library(ggpubr)
+```
+
+```{r}
+residuos <- data.frame(Error = reg_alturas$residuals)
+
+ggplot(data = residuos, aes(x = Error)) +
+  geom_histogram(fill = "pink", col = "purple") +
+  ylab("")
+
+ggqqplot(data = residuos, x = "Error", color = "violet", pch = 16)
+
+shapiro.test(residuos$Error)
+```
+
+No se aprecia normalidad en los residuos.
+
+## Recta de regresión
+
+Leemos los coeficientes de la recta de regresión.
+
+```{r}
+reg_alturas$coefficients
+```
+
+Armamos la recta de regresión:
+
+$$
+\hat{y} = 86.83264 + 0.50972 x,
+$$
+
+donde $x$ representa la altura en centímetros del padre e $\hat{y}$ representa la altura en centímetros del hijo estimada por el modelo.
+
+Grafiquemos esta recta.
+
+```{r}
+ggplot(data = alturas, aes(x = Padre, y = Hijo)) +
+  geom_point(col = "pink") +
+  geom_abline(slope = 0.50972, intercept = 86.83264, color = "purple") +
+  xlab("Altura del padre (en cm)") +
+  ylab("Altura del hijo (en cm)")
+```
+
+## Evaluación del modelo
+
+```{r}
+summary(reg_alturas)
+```
+
+Vemos que las estimaciones de ambos coeficientes de regresión tienen una alta significación estadística (`***`).
+
+El coeficiente de determinación $R^2$ no es muy alto, por lo que la bondad del modelo no es demasiado confiable.
+
+Como el estadístico $F$ observado tiene un valor muy alto con $p$-valor inferior a $0.05$, se rechaza la hipótesis nula de una relación lineal entre las alturas de un padre y su hijo.

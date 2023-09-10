@@ -1,0 +1,208 @@
+---
+title: "Ejemplo de aplicación: Regresión lineal múltiple"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE}
+data(mtcars)
+head(mtcars)
+```
+
+Vamos a trabajar con las siguientes variables:
+
+-   *mpg*: millas por galón
+
+-   *disp*: cilindrada en pulgadas cúbicas
+
+-   *hp*: caballos de fuerza
+
+-   *wt*: peso en miles de libras
+
+Seleccionamos los datos con los que vamos a trabajar y convertimos unidades.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+```{r, message=FALSE}
+autos <- mtcars %>%
+  mutate(
+    Rendimiento = round(mpg /2.352, 1),
+    Cilindrada = round(disp / 61.024, 1),
+    Caballos = hp,
+    Peso = round(wt / 2.205, 3)
+  ) %>%
+  dplyr::select(Rendimiento, Cilindrada, Caballos, Peso)
+
+head(autos)
+attach(autos)
+```
+
+Las variables modificadas son:
+
+-   *Rendimiento*: kilómetros por hora
+
+-   *Cilindrada*: cilindrada en litros
+
+-   *Caballos*: caballos de fuerza
+
+-   *Peso*: peso en miles de kilogramos
+
+## Objetivo
+
+Estudiar si existe una relación lineal entre el rendimiento de un auto en función de su cilindrada, sus caballos de fuerza y su peso. Dicho de otro modo, buscamos un modelo de la forma:
+
+$$
+\text{Rendimiento} = \beta_0 + \beta_1 \cdot \text{Cilindrada} + \beta_2 \cdot \text{Caballos} + \beta_3 \cdot \text{Peso}.
+$$
+
+## Diseño del modelo
+
+```{r}
+reg_autos <- lm(formula = Rendimiento ~ Cilindrada + Caballos + Peso,
+                data = autos)
+```
+
+## Coeficientes
+
+Redondeamos a tres cifras decimales
+
+```{r}
+round(reg_autos$coefficients, 3)
+```
+
+## Ecuación
+
+El modelo lineal está dado por la ecuación:
+
+$$
+\text{Rendimiento} = 15.787 - 0.021 \cdot \text{Cilindrada} - 0.013 \cdot \text{Caballos} - 3.578 \cdot \text{Peso}.
+$$
+
+Vamos a programarla.
+
+```{r}
+y_hat <- function(ci, ca, pe){
+  return(15.787 - 0.021 * ci - 0.013 * ca - 3.578 * pe)
+}
+```
+
+## Residuos
+
+```{r, mesage=FALSE, warning=FALSE}
+library(ggpubr)
+```
+
+```{r}
+residuos <- data.frame(Error = reg_autos$residuals)
+
+ggqqplot(data = residuos, x = "Error", color = "violet", pch = 16)
+
+shapiro.test(residuos$Error)
+```
+
+Los residuos no respetan el supuesto de normalidad.
+
+## Estimaciones
+
+Veamos los valores de $\hat{y}$ según el modelo.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+y_hat <- as.vector(reg_autos$fitted.values)
+y_hat
+```
+
+## Error estándar residual
+
+```{r}
+n <- dim(autos)[1] # cantidad de observaciones
+k <- 3 # cantidad de variables predictoras
+error <- (autos$Rendimiento - y_hat)^2 # cuadrados de los errores 
+s2 <- sum(error) / (n - k - 1) # varianza poblacional de los residuos
+sqrt(s2) # error estándar residual
+```
+
+Otra manera de calcular el error estándar residual es mediante el siguiente comando.
+
+```{r}
+summary(reg_autos)$sigma
+```
+
+## Intervalos de confianza
+
+```{r}
+confint(reg_autos, "Cilindrada", level=0.95)
+confint(reg_autos, "Caballos", level=0.95)
+confint(reg_autos, "Peso", level=0.95)
+```
+
+Vemos que los intervalos de confianza de las variables que representan los caballos de fuerza y el peso, no contienen al cero. Podemos concluir con una significancia estadística del $95\%$ que hay una asociación entre el rendimiento de un auto tanto con sus caballos de fuerza, como con su peso.
+
+Por el contrario, como el intervalo de confianza de la variable que representa la cilindrada contiene al cero, no hay evidencia estadística que muestre asociación entre el rendimiento de un auto y su cilindrada.
+
+## Coeficiente de determinación
+
+Calculemos el coeficiente de determinación junto con su ajuste.
+
+```{r}
+R2 <- summary(reg_autos)$r.squared
+R2
+
+R2_ajustado <- summary(reg_autos)$adj.r.squared
+R2_ajustado
+```
+
+Vemos que el valor $R^2_{\text{ajustado}}$ de $0.8089$ es alto.
+
+## Estadístico $F$
+
+Calculemos ahora el estadístico $F$, junto con sus grados de libertad.
+
+```{r}
+summary(reg_autos)$fstatistic
+```
+
+Ahora, veamos cuál es el valor crítico en este caso.
+
+```{r}
+qf(p = 0.95, df1 = 3, df2 = 28)
+```
+
+Como el estadístico observado es mayor que el valor crítico, rechazamos la hipótesis nula. Esto indica que hay evidencia estadística para afirmar que el rendimiento de un auto depende de su cilindrada, sus caballos de fuerza y su peso.
+
+## Bondad de ajuste
+
+Todo el análisis anterior puede resumirse con el siguiente comando.
+
+```{r}
+summary(reg_autos)
+```
+
+Podemos observar nuevamente cierta ineficiencia de la variable que representa la cilindrada, puesto que el $p$-valor de la estimación del coeficiente de regresión asociado a la misma es superior a $0.05$.
+
+¿Podremos mejorar el modelo si eliminamos esta variable? Es decir, planteamos el modelo:
+
+$$
+\text{Rendimiento} = \beta_0 + \beta_1 \cdot \text{Caballos} + \beta_2 \cdot \text{Peso}.
+$$
+
+## Nuevo modelo con dos variables predictoras
+
+Diseñamos el modelo.
+
+```{r}
+reg_autos_nueva <- lm(formula = Rendimiento ~ Caballos + Peso,
+                      data = autos)
+```
+
+Vemos la bondad de ajuste del modelo.
+
+```{r}
+summary(reg_autos_nueva)
+```
+
+Podemos observar que el error estándar residual pasó de $1.118$ a $1.099$, mientras que el coeficiente de determinación ajustado pasó de $0.8089$ a $0.8155$. Además, el estadístico $F$ se incrementó de $44.75$ a $69.51$. Luego, podemos concluir que el rendimiento de un auto está relacionado con sus caballos de fuerza y su peso.

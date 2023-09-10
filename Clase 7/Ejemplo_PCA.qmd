@@ -1,0 +1,325 @@
+---
+title: "Ejemplo de aplicación: Análisis de componentes principales"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(factoextra)
+```
+
+```{r}
+data(decathlon2)
+```
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+glimpse(decathlon2)
+```
+
+Vemos que el conjunto de datos tiene 27 registros de 12 variables numéricas y 1 variable factor que vamos a descartar para realizar el estudio de PCA.
+
+```{r}
+decatlon <- decathlon2 %>%
+  dplyr::select(-Competition)
+```
+
+## Componentes principales
+
+Vamos a calcular las componentes principales. Recordemos que las variables deben estar estandarizadas, por lo que vamos a habilitar la opción `scale.`.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+PC <- prcomp(decatlon, scale = TRUE)
+PC$rotation
+```
+
+Cada una de las columnas está formada por los autovectores de la matriz de covarianzas; es decir, por las direcciones de las componentes principales.
+
+Podemos ver la importancia de las componentes principales mediante el siguiente comando.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+summary(PC)
+```
+
+Podemos observar que se generaron tantas componentes principales como la cantidad de variables en el conjunto de datos.
+
+La primera componente principal explica alrededor del $43\%$ de la variación total de los datos. Esto implica que casi la mitad de la información en un conjunto de 12 variables puede ser representada sólo por la primera componente principal. La segunda componente principal explica casi el $15\%$ de la varianza total.
+
+Las primeras 6 componentes principales explican más del $90\%$ de la variación total. Esto indica que la mitad de las variables pueden representar correctamente los datos.
+
+## Ortogonalidad
+
+Estudiemos la multicolinealidad de las primeras cuatro componentes principales.
+
+```{r, message=FALSE, warning=FALSE}
+library(psych)
+```
+
+```{r}
+PC_4 <- as.data.frame(cbind(PC$x[,1:4], decathlon2$Competition))
+colnames(PC_4) <- c("PC1", "PC2", "PC3", "PC4", "Competición")
+pairs.panels(PC_4[1:4], bg = c("pink", "purple")[PC_4$Competición],
+             hist.col = "violet", pch = 21, cex.cor = 0.5)
+```
+
+Vemos que todas las correlaciones se anulan.
+
+Los puntos de los scatter plots del triángulo inferior están coloreados según la competencia, en rosa Dercastar y en violeta OlympicG. Las elipses de correlación indican las zonas más densas de puntos las cuales ayudan a visualizar la fuerza y la dirección de la correlación, que en el caso de estudio es nula puesto que las elipses están en posición horizontal.
+
+Para ver las correlaciones de todas las variables, podemos realizar un correlograma.
+
+```{r, message=FALSE, warning=FALSE}
+library(corrplot)
+```
+
+```{r}
+correlaciones <- cor(PC$x, method = "pearson")
+corrplot::corrplot(correlaciones, method = "color", tl.pos = "n")
+```
+
+Podemos observar que fuera de la diagonal, todos los "cuadraditos" están en blanco, indicando una correlación nula, como se desprende de la barra de colores de referencia.
+
+## Vector de cargas
+
+Vamos a visualizar las cargas de la primera componente principal.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+PC$rotation[,1]
+```
+
+Podemos observar que la primera componente tiene valores positivos altos para el puntaje (*Points*), lanzamiento de pesas (*Shot.put*), salto largo (*Long.jump*) y lanzamiento de discos (*Discus*) . Por el contrario, los valores para los 100 metros llanos (*X100m*), el ranking (*Rank*), los 100 metros con vallas (*X110m.hurdle*) y los 400 metros llanos (*X400m*) son "muy" negativos.
+
+Esto indica que si las variables con carga positiva se incrementan, también lo hará la primera componente principal. En la situación contraria, si las variables con carga negativa se incrementan, la primera componente principal disminuye.
+
+Ahora, ¿qué significa una carga "importante"? Podemos establecer un corte dado por el caso en el que todas las variables contribuyan de la misma manera.
+
+```{r}
+corte <- sqrt(1/12) # 12 representa la cantidad de variables
+corte
+```
+
+Veamos las cargas de las variables según este corte.
+
+```{r}
+cargas1 <- PC$rotation[,1] # cargas de la primera componente
+cargas2 <- PC$rotation[,2] # cargas de la segunda componente
+
+print(cargas1[cargas1 > corte | cargas1 < -corte])
+print(cargas2[cargas2 > corte | cargas2 < -corte])
+```
+
+## Proyección
+
+Las coordenadas de las proyecciones de los datos sobre las componentes principales se pueden obtener de la siguiente manera.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+PC$x
+```
+
+## Explicación de la varianza
+
+Veamos los autovalores, que son las varianzas de las componentes principales, junto con la proporción de varianza explicada.
+
+```{r}
+PCvar <- get_eigenvalue(PC)
+PCvar
+```
+
+Vemos que para explicar al menos el $90\%$ de la varianza, se necesitan 6 componentes principales.
+
+## Scree plot
+
+Vamos a realizar un scree plot para ver la cantidad óptima de componentes principales.
+
+```{r}
+library(factoextra)
+```
+
+```{r}
+fviz_screeplot(PC, barfill = "pink", barcolor = "pink", linecolor = "purple", addlabels = TRUE, ncp = 12) +
+  geom_abline(slope = 0, intercept = 10, color = "red", linetype = "dashed")
+```
+
+Según la regla de Kaiser, podemos conservar las primeras tres o cuatro componentes principales.
+
+¿Cuántas componentes principales son necesarias para explicar el $95\%$ de la varianza de los datos?
+
+```{r}
+resumen <- summary(PC)
+prop_acumulada <- resumen$importance[3,]
+min(which(prop_acumulada >= 0.95))
+```
+
+Podemos concluir que con 8 variables de un total de 12, se puede comprender el $95\%$ de la información de los datos.
+
+Podemos visualizar estos resultados como sigue.
+
+```{r}
+library(ggthemes)
+```
+
+```{r}
+importancia <- as.data.frame(resumen$importance[3,])
+colnames(importancia) <- "Importancia"
+nPC <- dim(importancia)[1] # cantidad de componentes principales
+
+ggplot(importancia, aes(x=1:nPC, y = Importancia)) +
+  geom_point(color = "pink") +
+  scale_x_continuous(limits = c(1, 12), breaks = 1:12) +
+  geom_abline(slope = 0, intercept = 0.95, color = "purple", linetype = "dashed") +
+  xlab("Número de componentes principales") +
+  theme_hc()
+```
+
+## Visualización
+
+Graficamos los individuos con un perfil similar agrupados según color.
+
+```{r}
+fviz_pca_ind(PC, repel = TRUE,  
+             col.ind = "cos2", # según la calidad de la representación
+             gradient.cols = "Set1",
+             title = "",
+             legend.title = "") 
+```
+
+Para analizar el impacto de cada atributo sobre cada componente principal, realizamos el siguiente gráfico, donde el color indica la contribución de cada variable en las componentes principales.
+
+```{r}
+fviz_pca_var(PC, repel = TRUE,  
+             col.var = "contrib", # según la contribución
+             gradient.cols = "Set1",
+             title = "",
+             legend.title = "") 
+```
+
+Podemos observar lo siguiente:
+
+-   Las variables que se encuentran más próximas están positivamente correlacionadas, como es el caso de los 100 metros en llano, los 110 metros con vallas y los 400 metros en llano.
+
+-   Cuanto más largo es el vector (flecha), mejor representada está la variable por las componentes principales. En este sentido, el puntaje, los saltos en largo y alto junto con los 110 metros en llano están mejor representados en comparación con los 1500 metros en llano y el lanzamiento de jabalina.
+
+-   Las variables negativamente correlacionadas se presentan en direcciones opuestas, como se aprecia para el caso del salto en largo y los 100 metros en llano.
+
+Podemos comparar la fuerza de las cargas de las variables en algunas componentes principales.
+
+```{r}
+fviz_pca_var(PC, axes = c(1, 2), repel = TRUE, col.var = "purple", col.circle = "pink")
+fviz_pca_var(PC, axes = c(3, 4), repel = TRUE, col.var = "purple", col.circle = "pink")
+fviz_pca_var(PC, axes = c(5, 6), repel = TRUE, col.var = "purple", col.circle = "pink")
+```
+
+Graficamos tanto individuos como variables en un mismo gráfico.
+
+```{r}
+fviz_pca_biplot(PC, repel = TRUE,  
+             col.var = "purple", 
+             col.ind = "pink",
+             title = "",
+             legend.title = "") 
+```
+
+## Contribución de cada variable
+
+Podemos ver las contribuciones de las variables y de los individuos a las componentes principales de la siguiente manera.
+
+```{r}
+# Contribución de las variables
+res_var <- get_pca_var(PC)
+
+# Visualicemos para las primeras cuatro dimensiones
+res_var$contrib[,1:4]
+```
+
+Podemos observar lo siguiente:
+
+-   El puntaje es la mejor variable representada por la primera componente principal y los 1500 metros en llano la peor.
+
+-   El salto con pértiga es la mejor variable representada por la segunda componente principal y el puntaje la peor.
+
+-   El tiro de jabalina es la mejor variable representada por la tercera componente principal y el puntaje la peor.
+
+-   Los 1500 metros en llano son la mejor variable representada por la cuarta componente principal y el lanzamiento de pesos la peor.
+
+También podemos visualizar la calidad de la representación de cada variable como se muestra en el siguiente código.
+
+```{r}
+# Usando las dos primeras componenes prncipales
+fviz_cos2(PC, choice = "var", axes = 1:2, fill = "pink", color = "violet") +
+  ggtitle("Calidad en la representación de las variables en las dimensiones 1-2") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Usando las tres primeras componenes prncipales
+fviz_cos2(PC, choice = "var", axes = 1:3, fill = "pink", color = "violet") +
+  ggtitle("Calidad en la representación de las variables en las dimensiones 1-3") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Usando las dos cuatro componenes prncipales
+fviz_cos2(PC, choice = "var", axes = 1:4, fill = "pink", color = "violet") +
+  ggtitle("Calidad en la representación de las variables en las dimensiones 1-4") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Podemos concluir que las cuatro primeras componentes principales representan a todas las variables en un porcentaje superior al $75\%$ aproximadamente.
+
+## Contribución de cada registro
+
+Podemos proceder de la misma manera para cada registro.
+
+```{r}
+# Contribución de los individuos
+res_ind <- get_pca_ind(PC)
+
+# Visualicemos para las primeras cuatro dimensiones
+res_ind$contrib[,1:4]
+```
+
+Busquemos los competidores mejor representados por las cuatro primeras componentes principales.
+
+```{r}
+contribuciones <- res_ind$contrib[,1:4]
+maximos <- apply(contribuciones, 2, max)
+competidores <- c(which(contribuciones[,1] == maximos[1]),
+                  which(contribuciones[,2] == maximos[2]),
+                  which(contribuciones[,3] == maximos[3]),
+                  which(contribuciones[,4] == maximos[4]))
+competidores
+```
+
+Los mejores competidores representados por las cuatro primeras componentes son: Bourguignon, Yurkov, Drews y Karpov, respectivamente.
+
+```{r}
+# Usando las dos primeras componenes prncipales
+fviz_cos2(PC, choice = "ind", axes = 1:4, fill = "pink", color = "violet") +
+  ggtitle("Calidad en la representación de los competidores en las dimensiones 1-4") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+No todos los registros tienen una buena calidad en la representación por las cuatro primeras componentes principales.
+
+## Paquetes
+
+Existen otros paquetes para realizar el PCA, tales como:
+
+-   `FactoMineR`,
+
+-   `ade4`,
+
+-   `stats`,
+
+-   `ca`,
+
+-   `MASS`,
+
+-   `ExPosition`.

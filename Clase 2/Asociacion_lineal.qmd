@@ -1,0 +1,92 @@
+---
+title: "Asociación Lineal"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+# Cargamos la base de datos
+data("trees")
+```
+
+```{r}
+# Vemos los primeros datos
+head(trees)
+```
+
+```{r}
+# Cambiamos los nombres a las columnas
+colnames(trees) <- c("Diámetro", "Altura", "Volumen")
+
+head(trees)
+```
+
+Vector de medias muestral.
+
+```{r}
+mu <- apply(trees, 2, mean) # el 2 indica que se aplica la función a cada columna, de aplicarlo por fila debe ir un 1
+mu
+```
+
+Vector de varianzas muestral.
+
+```{r}
+sigma2 <- apply(trees, 2, var)
+sigma2
+```
+
+## Scatterplots
+
+```{r, message = FALSE, warning=FALSE}
+library(ggplot2)
+```
+
+```{r}
+# Diámetro vs. altura
+ggplot(trees, aes(x = Diámetro, y = Altura)) +
+  geom_point(colour = "violet")
+```
+
+```{r}
+# Diámetro vs. volumen
+ggplot(trees, aes(x = Diámetro, y = Volumen)) +
+  geom_point(colour = "violet")
+```
+
+```{r}
+# Altura vs. volumne
+ggplot(trees, aes(x = Altura, y = Volumen)) +
+  geom_point(colour = "violet")
+```
+
+## Correlación
+
+Cálculo de la matriz de covarianzas.
+
+```{r}
+cov(trees)
+```
+
+Cálculo de las correlaciones.
+
+```{r}
+Corr <- cor(trees)
+Corr
+```
+
+Visualización de las correlaciones.
+
+```{r, warning=FALSE, message=FALSE}
+library(corrplot)
+```
+
+```{r}
+corrplot(Corr)
+corrplot(Corr, type = "upper", method = "color", tl.pos = "tp")
+corrplot(Corr, add = TRUE, type = "lower", method = "number", tl.pos = "n", cl.pos = "n")
+```
+
+En todos los análisis podemos observar una fuerte correlación positiva entre el diámetro y el volumen, indicando que al crecer el valor del diámetro mayor será el valor del volumen.
+
+Por otra parte, la altura y el volumen también está corelacionados positivamente, pero de una manera mucho más moderada.

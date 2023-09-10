@@ -1,0 +1,410 @@
+---
+title: "Ejemplo de aplicación: Regresión con trasformaciones logarítmicas"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+library(rstudioapi)
+library(readxl)
+```
+
+```{r}
+setwd(dirname(getActiveDocumentContext()$path))
+```
+
+```{r, message=FALSE}
+Bacterias <- read_excel("Bacterias.xlsx")
+head(Bacterias)
+attach(Bacterias)
+```
+
+Las variables que vamos a utilizar son:
+
+-   *Tiempo*: medido en horas;
+
+-   *Bacteria1*: cantidad de bacterias de tipo 1 en miles;
+
+-   *Bacteria2*: cantidad de bacterias de tipo 2 en miles;
+
+-   *Bacteria3*: cantidad de bacterias de tipo 3 en miles.
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(ggpubr)
+```
+
+# Primer caso de estudio
+
+## Scatterplot
+
+```{r}
+ggplot(data = Bacterias, aes(x = Tiempo, y = Bacteria1)) + 
+  geom_point(color = "violet") +
+  xlab("Tiempo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+## Regresión lineal
+
+Realicemos un modelo de regresión lineal.
+
+```{r}
+reg_lineal_bacteria_1 <- lm(formula = Bacteria1 ~ Tiempo,
+                 data = Bacterias)
+
+summary(reg_lineal_bacteria_1)
+```
+
+El modelo de regresión lineal está dado por la ecuación:
+
+$$
+\hat{y}_{B1} = -0.69772 + 0.40962 x.
+$$
+
+Registremos la ecuación del modelo.
+
+```{r}
+y_hat_B1 <- function(x){-0.69772 + 0.40962 * x}
+```
+
+Representémoslo gráficamente.
+
+```{r}
+ggplot(data = Bacterias, aes(x= Tiempo, y = Bacteria1)) +
+  geom_point(color = "pink") +
+  geom_function(fun = y_hat_B1, color = "purple") +
+  xlab("Tiempo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+El error estándar residual es igual a $1.292$. Analicemos la normalidad de los residuos.
+
+```{r}
+ggqqplot(reg_lineal_bacteria_1$residuals, color = "violet")
+
+shapiro.test(reg_lineal_bacteria_1$residuals)
+```
+
+¿Podremos mejorar estos resultados?
+
+Podemos apreciar un crecimiento exponencial.
+
+## Regresión log-lineal
+
+```{r}
+reg_log_lineal_bacteria_1 <- lm(formula = log(Bacteria1) ~ Tiempo,
+                 data = Bacterias)
+
+summary(reg_log_lineal_bacteria_1)
+```
+
+Podemos observar que el error estándar residual disminuyó a $0.1042$.
+
+El modelo de regresión log-lineal está dado por la ecuación:
+
+$$
+\hat{y}_{\log-B1} = \exp(0.003039+0.099791x).
+$$
+
+Registremos la ecuación del modelo.
+
+```{r}
+y_hat_log_B1 <- function(x){exp(0.003039 + 0.099791 * x)}
+```
+
+Representémoslo gráficamente.
+
+```{r}
+ggplot(data = Bacterias, aes(x= Tiempo, y = Bacteria1)) +
+  geom_point(color = "pink") +
+  geom_function(fun = y_hat_log_B1, color = "purple") +
+  xlab("Tiempo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+```{r}
+ggqqplot(reg_log_lineal_bacteria_1$residuals, color = "violet")
+
+shapiro.test(reg_log_lineal_bacteria_1$residuals)
+```
+
+El estadístico $W$ pasó de $0.75884$ a $0.9798$.
+
+Comparemos los errores.
+
+```{r}
+# Aproximaciones
+yB1lin <- y_hat_B1(1:24)
+yB1log <- y_hat_log_B1(1:24)
+
+# Errores
+EB1 <- abs(Bacteria1 - yB1lin)
+EB1log <- abs(Bacteria1 - yB1log)
+
+# Data frame
+E1 <- data.frame(Tiempo = rep(Tiempo, 2),
+                 Errores = c(EB1, EB1log),
+                 Modelo = c(rep("Lineal", 24), rep("Log-lineal", 24)))
+
+# Visualización
+ggplot(data = E1, aes(x = Tiempo, y = Errores, color = Modelo)) +
+  geom_point() +
+  geom_line()
+```
+
+Observar que las aproximaciones son mejores para el modelo de regresión log-lineal en la mayoría de los casos.
+
+Observar que no tiene sentido comparar los coeficientes de determinación pues las variables respuesta son diferentes.
+
+# Segundo caso de estudio
+
+## Scatterplot
+
+```{r}
+ggplot(data = Bacterias, aes(x = Tiempo, y = Bacteria2)) + 
+  geom_point(color = "violet") +
+  xlab("Tiempo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+## Regresión lineal
+
+Realicemos un modelo de regresión lineal.
+
+```{r}
+reg_lineal_bacteria_2 <- lm(formula = Bacteria2 ~ Tiempo,
+                 data = Bacterias)
+
+summary(reg_lineal_bacteria_2)
+```
+
+El modelo de regresión lineal está dado por la ecuación:
+
+$$
+\hat{y}_{B2} = 1.027005 + 0.104158 x.
+$$
+
+Registremos la ecuación del modelo.
+
+```{r}
+y_hat_B2 <- function(x){1.027005 + 0.104158 * x}
+```
+
+Representémoslo gráficamente.
+
+```{r}
+ggplot(data = Bacterias, aes(x= Tiempo, y = Bacteria2)) +
+  geom_point(color = "pink") +
+  geom_function(fun = y_hat_B2, color = "purple") +
+  xlab("Tiempo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+El error estándar residual es igual a $0.3213$. Analicemos la normalidad de los residuos.
+
+```{r}
+ggqqplot(reg_lineal_bacteria_1$residuals, color = "violet")
+
+shapiro.test(reg_lineal_bacteria_1$residuals)
+```
+
+¿Podremos mejorar estos resultados?
+
+Podemos apreciar un crecimiento logarítmico.
+
+## Regresión lineal-log
+
+```{r}
+reg_lineal_log_bacteria_2 <- lm(formula = Bacteria2 ~ log(Tiempo),
+                 data = Bacterias)
+
+summary(reg_lineal_log_bacteria_2)
+```
+
+Podemos observar que el error estándar residual disminuyó a $0.1101$.
+
+El modelo de regresión lineal-log está dado por la ecuación:
+
+$$
+\hat{y}_{\log-B2} = 0.14802 + 0.95543\ln(x).
+$$
+
+Registremos la ecuación del modelo.
+
+```{r}
+y_hat_log_B2 <- function(x){0.14802 + 0.95543 * log(x)}
+```
+
+Representémoslo gráficamente.
+
+```{r}
+ggplot(data = Bacterias, aes(x= Tiempo, y = Bacteria2)) +
+  geom_point(color = "pink") +
+  geom_function(fun = y_hat_log_B2, color = "purple") +
+  xlab("Tiempo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+```{r}
+ggqqplot(reg_lineal_log_bacteria_2$residuals, color = "violet")
+
+shapiro.test(reg_lineal_log_bacteria_2$residuals)
+```
+
+El estadístico $W$ pasó de $0.75884$ a $0.9726$.
+
+Comparemos los errores.
+
+```{r}
+# Aproximaciones
+yB2lin <- y_hat_B2(1:24)
+yB2log <- y_hat_log_B2(1:24)
+
+# Errores
+EB2 <- abs(Bacteria2 - yB2lin)
+EB2log <- abs(Bacteria2 - yB2log)
+
+# Data frame
+E2 <- data.frame(Tiempo = rep(Tiempo, 2),
+                 Errores = c(EB2, EB2log),
+                 Modelo = c(rep("Lineal", 24), rep("Lineal-log", 24)))
+
+# Visualización
+ggplot(data = E2, aes(x = Tiempo, y = Errores, color = Modelo)) +
+  geom_point() +
+  geom_line()
+```
+
+Observar que las aproximaciones son mejores para el modelo de regresión lineal-log en la mayoría de los casos.
+
+# Tercer caso de estudio
+
+## Scatterplot
+
+```{r}
+ggplot(data = Bacterias, aes(x = Tiempo, y = Bacteria3)) + 
+  geom_point(color = "violet") +
+  xlab("Teimpo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+## Regresión lineal
+
+Realicemos un modelo de regresión lineal.
+
+```{r}
+reg_lineal_bacteria_3 <- lm(formula = Bacteria3 ~ Tiempo,
+                 data = Bacterias)
+
+summary(reg_lineal_bacteria_3)
+```
+
+El modelo de regresión lineal está dado por la ecuación:
+
+$$
+\hat{y}_{B3} = 0.36597 + 0.95135 x.
+$$
+
+Registremos la ecuación del modelo.
+
+```{r}
+y_hat_B3 <- function(x){0.36597 + 0.95135 * x}
+```
+
+Representémoslo gráficamente.
+
+```{r}
+ggplot(data = Bacterias, aes(x= Tiempo, y = Bacteria3)) +
+  geom_point(color = "pink") +
+  geom_function(fun = y_hat_B3, color = "purple") +
+  xlab("Tiempo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+El error estándar residual es igual a $1.247$. Analicemos la normalidad de los residuos.
+
+```{r}
+ggqqplot(reg_lineal_bacteria_3$residuals, color = "violet")
+
+shapiro.test(reg_lineal_bacteria_3$residuals)
+```
+
+¿Podremos mejorar estos resultados?
+
+No se observa un tipo de crecimiento muy marcado.
+
+## Regresión log-log lineal
+
+```{r}
+reg_log_log_bacteria_3 <- lm(formula = log(Bacteria3) ~ log(Tiempo),
+                 data = Bacterias)
+
+summary(reg_log_log_bacteria_3)
+```
+
+Podemos observar que el error estándar residual disminuyó a $0.09404$.
+
+El modelo de regresión log-lineal está dado por la ecuación:
+
+$$
+\hat{y}_{\log-B3} = \exp[0.04196 + 0.97689 \ln(x)].
+$$
+
+Registremos la ecuación del modelo.
+
+```{r}
+y_hat_log_B3 <- function(x){exp(0.04196 + 0.97689 * log(x))}
+```
+
+Representémoslo gráficamente.
+
+```{r}
+ggplot(data = Bacterias, aes(x= Tiempo, y = Bacteria3)) +
+  geom_point(color = "pink") +
+  geom_function(fun = y_hat_log_B3, color = "purple") +
+  xlab("Tiempo (en horas)") +
+  ylab("Cantidad de bacterias (miles)") +
+  theme(aspect.ratio=1)
+```
+
+```{r}
+ggqqplot(reg_log_log_bacteria_3$residuals, color = "violet")
+
+shapiro.test(reg_log_log_bacteria_3$residuals)
+```
+
+El estadístico $W$ pasó de $0.96204$ a $0.97579$.
+
+Comparemos los errores.
+
+```{r}
+# Aproximaciones
+yB3lin <- y_hat_B3(1:24)
+yB3log <- y_hat_log_B3(1:24)
+
+# Errores
+EB3 <- abs(Bacteria3 - yB3lin)
+EB3log <- abs(Bacteria3 - yB3log)
+
+# Data frame
+E3 <- data.frame(Tiempo = rep(Tiempo, 2),
+                 Errores = c(EB3, EB3log),
+                 Modelo = c(rep("Lineal", 24), rep("Log-log", 24)))
+
+# Visualización
+ggplot(data = E3, aes(x = Tiempo, y = Errores, color = Modelo)) +
+  geom_point() +
+  geom_line()
+```
+
+Observar que las aproximaciones son muy similares, aunque mejores para el modelo de regresión log-log lineal en las primeras horas.

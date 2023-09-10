@@ -1,0 +1,173 @@
+---
+title: "Ejemplo de aplicación: ANOVA de un factor"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(rstudioapi)
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+library(car)
+library(nortest)
+```
+
+```{r}
+# Fijamos ruta de trabajo
+setwd(dirname(getActiveDocumentContext()$path))
+```
+
+```{r, message=FALSE, warning=FALSE}
+Venenos <- read_excel("Venenos.xlsx")
+View(Venenos)
+attach(Venenos)
+```
+
+Vamos a utilizar las siguientes variables:
+
+-   *Tiempo*: tiempo de sobrevida del animal (en horas);
+
+-   *Veneno*: tipo de veneno usado, que puede ser I, II, III;
+
+-   *Tratamiento*: tipo de tratamiento usado, que puede ser A, B, C, D.
+
+```{r}
+dim(Venenos)
+```
+
+Hay 48 registros en la base de datos.
+
+## Análisis exploratorio
+
+Calculemos las medias y los desvíos del tiempo de supervivencia en función del veneno y del tratamiento utilizados.
+
+```{r}
+# Según veneno
+Venenos %>%
+  group_by(Veneno) %>%
+  summarize(
+    Medias = mean(Tiempo),
+    Desvíos = sd(Tiempo)
+)
+
+# Según tratamiento
+Venenos %>%
+  group_by(Tratamiento) %>%
+  summarize(
+    Medias = mean(Tiempo),
+    Desvíos = sd(Tiempo)
+)
+```
+
+En ambos casos, pareciera haber diferencias entre las medias de los distintos grupos aunque los desvíos no son pequeños.
+
+Realicemos algún estudio gráfico, por ejemplo, con los boxplots por grupo.
+
+```{r}
+# Según veneno
+ggplot(data = Venenos, aes(x = Veneno, y = Tiempo, fill = Veneno)) +
+  geom_boxplot() +
+  ylab("Tiempo de supervivencia (en horas)") +
+  theme(legend.position = "none")
+```
+
+Podemos observar una mejor sepación entre el veneno I y los otros dos. En el caso del veneno II, hay mucho solapamiento con en veneno III.
+
+```{r}
+# Según tratamiento
+ggplot(data = Venenos, aes(x = Tratamiento, y = Tiempo, fill = Tratamiento)) +
+  geom_boxplot() +
+  ylab("Tiempo de supervivencia (en horas)") +
+  theme(legend.position = "none")
+```
+
+Podemos ver que ningún tratamiento parece mostrar un comportamiento extremadamente diferente al resto.
+
+Vamos a aplicar un ANOVA.
+
+## Supuestos
+
+[**Independencia**]{.underline}: se satisface pues los casos corresponden a distintos individuos.
+
+[**Normalidad**]{.underline}
+
+```{r}
+qqPlot(x = Tiempo, col = "pink", col.lines = "purple", pch = 16, 
+       id = FALSE,
+       xlab = "Cuantiles de la distribución Normal estándar",
+       ylab = "Cuantiles del tiempo de supervivencia")
+
+shapiro.test(Tiempo)
+lillie.test(Tiempo)
+```
+
+No hay evidencia estadística para descartar el supuesto de normalidad.
+
+[**Homocedasticidad**]{.underline}
+
+```{r}
+leveneTest(data = Venenos,
+           y = Tiempo,
+           group = Veneno)
+
+leveneTest(data = Venenos,
+           y = Tiempo,
+           group = Tratamiento)
+```
+
+No hay evidencia estadística para descartar el supuesto de homocedasticidad.
+
+## ANOVA de un factor
+
+```{r}
+# ANOVA según veneno
+aov_veneno <- aov(formula = Tiempo ~ Veneno,
+    data = Venenos)
+
+# Resultado del ANOVA
+summary(aov_veneno)
+```
+
+El $p$-valor obtenido (`0.000118`) es más bajo que el corte usual de $0.05$. Luego, hay una diferencia estadística entre los distintos tipos de veneno indicado por `***.`
+
+```{r}
+# ANOVA Según tratamiento
+aov_tratamiento <- aov(formula = Tiempo ~ Tratamiento,
+    data = Venenos)
+
+# Resultado del ANOVA
+summary(aov_tratamiento)
+```
+
+El $p$-valor obtenido (`0.148`) es más alto que el corte usual de $0.05$. Luego, no hay una diferencia estadística entre los distintos tipos de tratamientos.
+
+En ambos casos, obtuvimos como resultado del ANOVA: el valor del estadístico $F$, los grados de libertad y el $p$-valor. Nos restaría calcular el tamaño del efecto $\eta^2$.
+
+## Tamaño del efecto
+
+```{r, message=FALSE, warning=FALSE}
+library(effectsize)
+```
+
+```{r}
+eta_squared(aov_veneno)$Eta2
+```
+
+Como $\eta^2=0.33 > 0.14$, podemos concluir que la varianza del tiempo de supervivencia está explicada en gran medida por el tipo de veneno utilizado.
+
+```{r}
+eta_squared(aov_tratamiento)$Eta2
+```
+
+Como $\eta^2=0.11 > 0.06$, podemos concluir que la varianza del tiempo de supervivencia está medianamente explicada por el tipo de tratamiento utilizado.
+
+## ANOVA heterodástico
+
+```{r}
+oneway.test(Tiempo ~ Veneno, data = Venenos)
+oneway.test(Tiempo ~ Tratamiento, data = Venenos)
+```
+
+A partir de los resultados de los $p$-valores, concluimos lo mismo que al aplicar ANOVA.

@@ -1,0 +1,92 @@
+---
+title: "Ejemplo de aplicación: Contrastes POST-HOC"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(rstudioapi)
+library(readxl)
+library(ggplot2)
+```
+
+```{r}
+# Fijamos ruta de trabajo
+setwd(dirname(getActiveDocumentContext()$path))
+```
+
+```{r}
+Venenos <- read_excel("Venenos.xlsx")
+attach(Venenos)
+```
+
+Vamos a utilizar las siguientes variables:
+
+-   *Tiempo*: tiempo de sobrevida del animal (en horas);
+
+-   *Veneno*: tipo de veneno usado, que puede ser I, II, III;
+
+-   *Tratamiento*: tipo de tratamiento usado, que puede ser A, B, C, D.
+
+Ya vimos que al aplicar un ANOVA, se observan diferencias significativas estadísticamente en el tiempo de superviviencia del animal según el tipo de veneno empleado, que puede ser I, II o III.
+
+```{r}
+aov_veneno <- aov(formula = Tiempo ~ Veneno,
+    data = Venenos)
+summary(aov_veneno)
+```
+
+Estamos interesados ahora, en las comparaciones dos a dos de estos tipos de veneno; es decir:
+
+-   I versus II;
+
+-   I versus III;
+
+-   II versus III.
+
+## Intervalos LSD
+
+```{r, warning=FALSE, message=FALSE}
+library(agricolae)
+```
+
+```{r}
+LSD_veneno <- LSD.test(aov_veneno, trt = "Veneno")
+
+# Intervalos LSD
+LSD_veneno$means[,4:5]
+
+# Asignación de grupos
+LSD_veneno$groups
+```
+
+Podemos observar que no hay intersección entre los intervalos LSD del veneno del tipo I con ninguno de los otros dos tipos de veneno. Por el contrario, los intervalos de LSD se intersecan para los tipos de veneno II y III. Esto está indicando que el tiempo de supervivencia es similar estadísticamente para los venenos de tipo II y III y muy diferente en el caso del veneno de tipo I.
+
+Además, podemos observar que el veneno de tipo I se asignó al grupo `a`, mientras que los otros dos tipos de veneno corresponden al grupo `b`.
+
+## Ajuste de Bonferroni
+
+Apliquemos primero un test $t$ por cada par de tipos de veneno.
+
+```{r}
+pairwise.t.test(Tiempo, g = Veneno, p.adj = "none")
+```
+
+Podemos observar que los $p$-valores inferiores a $0.05$ se dan para los pares I-II (`3.3e-05`) y I-III (`0.00088`). Por el contrario, el $p$-valor para el par II-III (`0.29105`) es superior a $0.05$.
+
+Apliquemos ahora el ajuste de Bonferroni.
+
+```{r}
+pairwise.t.test(Tiempo, g = Veneno, p.adj = "bonf")
+```
+
+Concluimos que los tipos de veneno II y III no presentan diferencias estadísticas significativas. Por otra parte, hay evidencia estadística que indica diferencias estadísticas entre los venenos de tipo I y II, así como entre los de tipo I y III.
+
+## Test de Tukey
+
+```{r}
+TukeyHSD(aov_veneno)
+```
+
+Podemos concluir que sólo existen diferencias estadísticamente significativas en las medias de los tiempo de supervivencia entre los venenos de tipo I y II y entre los venenos de tipo I y III (casos donde el $p$-valor ajustado es inferior a $0.05$.

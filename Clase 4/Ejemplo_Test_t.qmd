@@ -1,0 +1,147 @@
+---
+title: "Ejemplo de aplicación: Test t"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(yarrr)
+```
+
+```{r, message=FALSE, warning=FALSE}
+data(pirates)
+attach(pirates)
+head(pirates)
+```
+
+Vamos a trabajar con las siguientes variables:
+
+-   *headband*: variable binaria que indica si el/la pirata usa o no una bandana;
+
+-   *tattoos*: cantidad de tatuajes que tiene el/la pirata;
+
+-   *height*: altura medida en centímetros.
+
+## Medias por grupo
+
+Vamos a calcular las medias de la cantidad de tatuajes y de la altura para aquellos/as piratas que usan una bandana y para los/las que no.
+
+```{r}
+pirates %>%
+  select(tattoos, height, headband) %>%
+  group_by(headband) %>%
+  summarize(
+    Medias.Tatuajes = mean(tattoos),
+    Medias.Altura = mean(height)
+)
+```
+
+Vemos que cantidad promedio de tatuajes en piratas que usan una bandana es 10, mientras que para quienes no la usan está entre 4 y 5.
+
+En cuanto a las alturas, vemos que las medias no son muy diferentes para ambos grupos.
+
+¿Serán estas diferencia significativas estadísticamente?
+
+Para responder esta pregunta, vamos a aplicar el test t. Sin embargo, antes debemos verificar las hipótesis para asegurar su correcta aplicación.
+
+## Normalidad
+
+Hagamos un estudio gráfico mediante los gráficos Cuantil-Cuantil para la variable que indica la cantidad de tatuajes.
+
+```{r, message=FALSE, warning=FALSE}
+library(car)
+```
+
+```{r}
+qqPlot(x = tattoos, col = "pink", col.lines = "purple", pch = 16, 
+       id = FALSE,
+       xlab = "Cuantiles de la distribución Normal estándar",
+       ylab = "Cuantiles de la cantidad de tatuajes")
+```
+
+Debido a que la ubicación de los puntos no está muy próxima a una recta, no podemos suponer normalidad de los datos.
+
+Realicemos ahora el test estadístico de Shapiro-Wilks.
+
+```{r}
+shapiro.test(tattoos)
+```
+
+El $p$-valor obtenido es igual a `5.49e-08=0.000000054`. Al ser un valor muy pequeño, rechazamos la hipótesis nula que indica normalidad de los datos.
+
+¿Cuántos registros hay en la base de datos?
+
+```{r}
+dim(pirates)
+```
+
+Al ser muchos regitros, es conveniente aplicar el test de Lilliefors.
+
+```{r, warning=FALSE}
+library(nortest)
+```
+
+```{r}
+lillie.test(tattoos)
+```
+
+Nuevamente, el $p$-valor es muy pequeño por lo que se rechaza la hipótesis nula de normalidad.
+
+Repetimos el proceso para la variable que indica la altura de los/las piratas.
+
+```{r}
+# Q-Q plot
+qqPlot(x = height, col = "pink", col.lines = "purple", pch = 16, 
+       id = FALSE,
+       xlab = "Cuantiles de la distribución Normal estándar",
+       ylab = "Cuantiles de la altura")
+
+# Test de Shapiro-Wilks
+shapiro.test(height)
+
+# Test de Lilliefors
+lillie.test(height)
+```
+
+En el caso de la altura, vemos que los puntos del gráfico Q-Q plot Normal se distribuyen próximos a una recta. Por otra parte, los $p$-valores de los test de Shapiro-Wilks y Lilliefors son mayores a $0.05$, por lo que no rechazamos la hipótesis nula de normalidad.
+
+Por lo observado, concluimos que no es válido aplicar el test t para la variable que indica la cantidad de tatuajes. Para la variable que indica altura, vamos a seguir analizando las hipótesis.
+
+## Homocedasticidad
+
+Vamos a aplicar el test de Levene.
+
+```{r}
+leveneTest(data = pirates,
+           y = height,
+           group = headband)
+```
+
+Vemos que el $p$-valor es `0.6637` , el cual resulta superior a $0.05$. Entonces, no rechazamos la hipótesis nula que supone la igualdad de las varianzas en los grupos.
+
+## Test $t$
+
+La última hipótesis que se debe verificar para aplicar el test es la de independencia, la cual se satisface puesto que los datos se toman de personas distintas.
+
+```{r}
+t.test(formula = height ~ headband,
+       data = pirates,
+       alternative = "two.sided")
+```
+
+Con un $p$-valor de `0.394`, no tenemos evidencia suficiente para decir que existe una diferencia en la altura de los/las piratas que usan una bandana de aquellos/as que no.
+
+## Test de Kruskal-Wallis
+
+Vimos que la variable que indica la cantidad de tatuajes no cumple el supuesto de normalidad. Sin embargo, notamos una diferencia entre las medias de los grupos definidos por el uso o no de una bandana.
+
+```{r}
+kruskal.test(tattoos ~ headband, data = pirates)
+```
+
+Como el $p$-valor es inferior al nivel se significancia de $0.05$, podemos concluir que hay diferencias significativas de las medias de la cantidad de tatuajes entre los grupos de piratas que usan bandana de quienes no la usan.

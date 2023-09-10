@@ -1,0 +1,304 @@
+---
+title: "Gráficos Univariados"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+data(sleep)
+```
+
+```{r}
+View(sleep)
+```
+
+La variable *extra* indica el incremento en la cantidad de horas de sueño, mientras que la variable *group* indica la droga suministrada.
+
+```{r}
+attach(sleep)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(ggplot2) # Recordar que el conjunto de datos debe estar en formato data.frame
+library(ggthemes)
+```
+
+## Gráfico de barras
+
+Vamos a estudiar el incremento de las horas de sueño de los estudiantes según el tipo de droga suministrada.
+
+```{r}
+# Armamos los grupos
+
+Grupo1 <- sleep %>%
+  filter(group == 1)
+
+Grupo2 <- sleep %>%
+  filter(group == 2)
+```
+
+```{r}
+ggplot(Grupo1, aes(x = ID, y = extra)) +
+  geom_bar(stat = "identity", fill = "pink", color = "purple", width = 0.5)
+
+ggplot(Grupo2, aes(x = ID, y = extra)) +
+  geom_bar(stat = "identity", fill = "pink", color = "purple", width = 0.5)
+```
+
+Los gráficos de barra indicarían que la droga 2 es más efectiva para lograr una mayor cantidad de horas de sueño.
+
+También se puede observar que el estudiante 5 reduce la cantidad de horas de sueño sin importar el tipo de droga suministrada.
+
+## Gráfico de barras horizontal
+
+```{r}
+
+ggplot(Grupo1, aes(x = ID, y = extra)) +
+  geom_bar(stat = "identity", fill = "pink", color = "purple", width = 0.5) +
+  coord_flip()
+
+ggplot(Grupo2, aes(x = ID, y = extra)) +
+  geom_bar(stat = "identity", fill = "pink", color = "purple", width = 0.5) +
+  coord_flip()
+```
+
+## Gráfico de barras por grupo
+
+```{r}
+ggplot(sleep, aes(x = ID, y = extra, fill = group)) +
+  geom_bar(stat = "identity", width = 0.5, position = "dodge") +
+  labs(fill = "Droga")
+```
+
+Con esta visualización vemos que efectivamente la droga 2 produce mejores resultados.
+
+## Gráfico de barras apilado
+
+```{r}
+ggplot(sleep, aes(x = ID, y = extra, fill = group)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  labs(fill = "Droga")
+```
+
+## Gráfico circular
+
+Veamos la influencia del tipo de droga en el estudiante 1.
+
+```{r}
+
+ID1 <- sleep %>%
+  filter(ID == 1)
+
+ggplot(ID1, aes(x = "", y = extra, fill = group)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  labs(fill = "Droga") +
+  theme_void()
+```
+
+Agregamos porcentajes.
+
+```{r, message=FALSE, warning=FALSE}
+library(scales)
+```
+
+```{r}
+ggplot(ID1, aes(x = "", y = extra, fill = group)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  labs(fill = "Droga") +
+  geom_text(aes(y = c(2.3, cumsum(extra)[1]), 
+                label = percent(extra/sum(extra))), size=5) +
+  theme_void()
+```
+
+Supongamos que queremos estudiar el grado de efectividad del consumo de la droga 1.
+
+```{r}
+# Asignamos niveles
+Resultado <- vector()
+
+for (i in 1:dim(Grupo1)[1]){
+  if (Grupo1$extra[i] < 0) {Resultado[i] <- "Contraproducente"}
+  else if (Grupo1$extra[i] < 1) {Resultado[i] <- "Leve"}
+  else {Resultado[i] <- "Alto"}
+}
+
+Grupo1 <- Grupo1 %>%
+  mutate(Resultado = Resultado)
+
+Grupo1
+```
+
+```{r}
+# Armamos una tabla de frecuencias
+frec <- as.data.frame(table(Resultado))
+frec
+```
+
+```{r}
+# Graficamos la torta
+ggplot(frec, aes(x="", y = Freq, fill = Resultado)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y") +
+  geom_text(aes(y = Freq/3 + c(0, cumsum(Freq)[-length(Freq)]), 
+                label = percent(Freq/sum(Freq))), size=5) +
+  theme_void()
+
+```
+
+Podemos observar que en la mayoría de los casos el consumo de la droga 1 no mejoró la cantidad de horas de sueño.
+
+## Boxplot
+
+```{r}
+ggplot(sleep, aes(x = group, y = extra, fill = group)) +
+  geom_boxplot() +
+  xlab("Droga") +
+  theme(legend.position = "none") 
+```
+
+Seguimos observando que el consumo de la droga 2 incrementa la cantidad de horas de sueño mucho más que el consumo de la droga 1.
+
+## Histograma
+
+```{r}
+ggplot(Grupo2, aes(extra)) +
+  geom_histogram(color = "violet", fill = "pink") +
+  ylab("Densidad")
+```
+
+Veamos cómo afecta la elección del ancho de cada bin.
+
+```{r}
+
+ggplot(Grupo2, aes(extra)) +
+  geom_histogram(binwidth = 0.5, color = "black", fill = "purple") +
+  ylab("Frecuencia")
+
+ggplot(Grupo2, aes(extra)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "violet") +
+  ylab("Frecuencia")
+
+ggplot(Grupo2, aes(extra)) +
+  geom_histogram(binwidth = 1.5, color = "black", fill = "pink") +
+  ylab("Frecuencia")
+```
+
+## Métodos para la selección de bins
+
+Veamos el impacto del número de bins en el histograma de un conjunto de datos normales.
+
+```{r}
+# Generamos los datos
+df <- data.frame(Valor = rnorm(1000))
+```
+
+Por defecto, `geom_histogram()` trabaja con 30 bins.
+
+```{r}
+ggplot(df, aes(Valor)) +
+  geom_histogram(color = "violet", fill = "pink") +
+  xlab("") +
+  ylab("Frecuencia")
+
+# Agregamos el polígono de frecuencias
+ggplot(df, aes(Valor)) +
+  geom_histogram(color = "violet", fill = "pink") +
+  geom_freqpoly(color = "purple") +
+  xlab("") +
+  ylab("Frecuencia")
+```
+
+Calculamos el número de clases según métodos conocidos.
+
+```{r}
+nSturges <- nclass.Sturges(df$Valor) # método de Sturges
+nSturges
+
+nScott <- nclass.scott(df$Valor) # método de Scott
+nScott
+
+nFD <- nclass.FD(df$Valor) # método de Freedman-Diaconis
+nFD
+```
+
+Veamos los histogramas resultantes.
+
+```{r}
+ggplot(df, aes(Valor)) +
+  geom_histogram(color = "black", fill = "purple", bins = nSturges) +
+  xlab("") +
+  ylab("Frecuencia")
+
+ggplot(df, aes(Valor)) +
+  geom_histogram(color = "black", fill = "violet", bins = nScott) +
+  xlab("") +
+  ylab("Frecuencia")
+
+ggplot(df, aes(Valor)) +
+  geom_histogram(color = "black", fill = "pink", bins = nFD) +
+  xlab("") +
+  ylab("Frecuencia")
+```
+
+Agregamos la curva de la distribución Normal.
+
+```{r}
+
+ggplot(df, aes(Valor)) +
+  geom_histogram(aes(y =..density..), color = "black", fill = "purple", bins = nSturges) +
+  xlab("") +
+  ylab("Densidad") +
+  stat_function(fun = dnorm, args = list(mean = mean(df$Valor), sd = sd(df$Valor)), color = "blue", size = 1.5)
+
+ggplot(df, aes(Valor)) +
+  geom_histogram(aes(y =..density..), color = "black", fill = "violet", bins = nScott) +
+  xlab("") +
+  ylab("Densidad") +
+  stat_function(fun = dnorm, args = list(mean = mean(df$Valor), sd = sd(df$Valor)), color = "blue", size = 1.5)
+
+ggplot(df, aes(Valor)) +
+  geom_histogram(aes(y =..density..), color = "black", fill = "pink", bins = nFD) +
+  xlab("") +
+  ylab("Densidad") +
+  stat_function(fun = dnorm, args = list(mean = mean(df$Valor), sd = sd(df$Valor)), color = "blue", size = 1.5)
+```
+
+Otro paquete con más opciones para la elección de bins.
+
+```{r, warning=FALSE}
+library(kpeaks)
+```
+
+```{r}
+# Regla de Mosteller-Tukey
+genpolygon(df$Valor, binrule = "sqr", disp = TRUE)
+```
+
+```{r}
+# Regla de Rice
+genpolygon(df$Valor, binrule = "rice", disp = TRUE)
+```
+
+```{r}
+# Regla de Sturges
+genpolygon(df$Valor, binrule = "sturges", disp = TRUE)
+```
+
+```{r}
+# Regla de Doane
+genpolygon(df$Valor, binrule = "doane", disp = TRUE)
+```
+
+```{r}
+# Regla de Scott
+genpolygon(df$Valor, binrule = "scott", disp = TRUE)
+```
+
+```{r}
+# Regla de Freedman-Diaconis
+genpolygon(df$Valor, binrule = "fd", disp = TRUE)
+```

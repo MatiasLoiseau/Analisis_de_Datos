@@ -1,0 +1,141 @@
+---
+title: "Ejemplo de aplicación: ANOVA de dos factores"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(rstudioapi)
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+library(car)
+```
+
+```{r}
+# Fijamos ruta de trabajo
+setwd(dirname(getActiveDocumentContext()$path))
+```
+
+```{r, message=FALSE, warning=FALSE}
+Venenos <- read_excel("Venenos.xlsx")
+attach(Venenos)
+```
+
+Vamos a utilizar las siguientes variables:
+
+-   *Tiempo*: tiempo de sobrevida del animal (en horas);
+
+-   *Veneno*: tipo de veneno usado, que puede ser I, II, III;
+
+-   *Tratamiento*: tipo de tratamiento usado, que puede ser A, B, C, D.
+
+## Grupos balanceados
+
+Recordemos que para aplicar ANOVA de dos factores, los grupos de cada tratamiento deben tener la misma cantidad de elementos.
+
+```{r}
+# Cantidad de elementos por tipo de tratamiento
+Venenos %>%
+  group_by(Tratamiento) %>%
+  summarise(
+    Muestras = n()
+  )
+
+# Catidad de elementos por tipo de veneno
+Venenos %>%
+  group_by(Veneno) %>%
+  summarise(
+    Muestras = n()
+  )
+```
+
+Vemos que esta condición se cumple para el factor tratamiento pero no para el factor veneno.
+
+Por ellos, vamos a armar una muestra que cumpla la condición. Como hay 3 tipos de veneno y 4 tipos de tratamiento, necesitamos una cantidad de registros que sea múltiplo de 3 y de 4, y que no supere el total de 48 registros. Dado que el veneno de tipo I tiene 12 registros, vamos a considerarlos a todos ellos y vamos a elegir 12 registros del veneno de tipo II y 12 registros del veneno de tipo III. Al tener 36 registros, necesitamos que haya 9 de cada tipo de tratamiento.
+
+```{r}
+# Contamos los tratamiento para el tipo de veneno I
+Venenos %>%
+  filter(Veneno == "I") %>%
+  group_by(Tratamiento) %>%
+  summarise(
+    Muestras = n()
+  )
+```
+
+Dado que estamos condicionados por los registros de veneno de tipo I, podemos seleccionar el resto de los registros como se indica en la siguiente tabla:
+
+|     |         |         |         |         |
+|:---:|:-------:|:-------:|:-------:|:-------:|
+|     |    A    |    B    |    C    |    D    |
+|  I  | ***3*** | ***2*** | ***4*** | ***3*** |
+| II  |    3    |    4    |    2    |    3    |
+| III |    3    |    3    |    3    |    3    |
+
+```{r}
+
+set.seed(1911)
+
+Venenos.sample <- rbind(filter(Venenos, Veneno == "I"),
+  filter(Venenos, Veneno == "II" & Tratamiento == "A") %>% sample_n(3),
+  filter(Venenos, Veneno == "II" & Tratamiento == "B") %>% sample_n(4),
+  filter(Venenos, Veneno == "II" & Tratamiento == "C") %>% sample_n(2),
+  filter(Venenos, Veneno == "II" & Tratamiento == "D") %>% sample_n(3),
+  filter(Venenos, Veneno == "III" & Tratamiento == "A") %>% sample_n(3),
+  filter(Venenos, Veneno == "III" & Tratamiento == "B") %>% sample_n(3),
+  filter(Venenos, Veneno == "III" & Tratamiento == "C") %>% sample_n(3),
+  filter(Venenos, Veneno == "III" & Tratamiento == "D") %>% sample_n(3))
+  
+```
+
+Volvamos a mirar la cantidad de elementos por grupo.
+
+```{r}
+# Cantidad de elementos por tipo de tratamiento
+Venenos.sample %>%
+  group_by(Tratamiento) %>%
+  summarise(
+    Muestras = n()
+  )
+
+# Catidad de elementos por tipo de veneno
+Venenos.sample %>%
+  group_by(Veneno) %>%
+  summarise(
+    Muestras = n()
+  )
+```
+
+Verifiquemos nuevamente los supuestos de normalidad y homocedasticidad.
+
+```{r}
+shapiro.test(Venenos.sample$Tiempo)
+leveneTest(Venenos.sample$Tiempo, group = Venenos.sample$Veneno)
+leveneTest(Venenos.sample$Tiempo, group = Venenos.sample$Tratamiento)
+```
+
+Todos los $p$-valores son superiores a $0.05$, por lo que no se rechazan las hipótesis nulas de normalidad e igualdad de las varianzas.
+
+## ANOVA de dos factores
+
+```{r}
+aov_2 <- aov(formula = Tiempo ~ Veneno + Tratamiento,
+    data = Venenos.sample)
+summary(aov_2)
+```
+
+Podemos concluir que que el tipo de veneno es estadísticamente diferente, mientras que el tipo de tratamiento no lo es. Es decir, rechazamos la hipótesis nula en el primer caso, confirmando que hay evidencia estadística para decir que un cambio en el tipo de veneno impacta el tiempo de sobrevida del animal.
+
+En el análisis anterior, no se incluyó la interacción entre los tipos de veneno y tratamiento.
+
+## Interacción entre variables
+
+```{r}
+aov_int <- aov(formula = Tiempo ~ Veneno * Tratamiento,
+    data = Venenos.sample)
+summary(aov_int)
+```
+
+Como el $p$-valor de la hipótesis de interacción es $0.73399 > 0.05$, no hay evidencia para rechazar la hipótesis nula, por lo que no existe interacción entre el tipo de veneno y el tipo de tratamiento que pueda influir en el tiempo de supervivencia del animal.

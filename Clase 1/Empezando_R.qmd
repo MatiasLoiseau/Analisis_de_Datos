@@ -1,0 +1,412 @@
+---
+title: "Primeros Pasos en R"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+## Operaciones básicas
+
+Suma de números.
+
+```{r}
+4 + 3
+```
+
+Resta de números.
+
+```{r}
+4 - 3
+```
+
+Multiplicación de números.
+
+```{r}
+4 * 3
+```
+
+División de números.
+
+```{r}
+4 / 2
+4 / 3
+```
+
+Potencia de números:
+
+$$
+x^n.
+$$
+
+```{r}
+4^2
+2**3
+```
+
+Raíces de números:
+
+$$
+\sqrt{x}=x^{1/n}.
+$$
+
+```{r}
+sqrt(9)
+8**(1/3)
+```
+
+## Funciones elementales
+
+Función módulo o valor absoluto:
+
+$$
+|x| = \begin{cases}
+x & \text{si $x \ge 0$,} \\
+-x & \text{si $x < 0$.}
+\end{cases}
+$$
+
+```{r}
+abs(2)
+abs(-5)
+```
+
+Función exponencial:
+
+$$
+e^x.
+$$
+
+```{r}
+exp(0)
+exp(1)
+```
+
+Funciones logarítmicas:
+
+$$
+\log(x),
+$$
+
+$$
+\ln(x),
+$$
+
+$$
+\log_2(x).
+$$
+
+```{r}
+log10(10)
+log(exp(1))
+log2(2)
+```
+
+Número $\pi$.
+
+```{r}
+pi
+```
+
+Funciones trigonométricas:
+
+$$
+\text{sin}(x),
+$$
+
+$$
+\cos(x), 
+$$
+
+$$
+\text{tg}(x)
+$$
+
+```{r}
+sin(pi)
+cos(pi)
+tan(pi)
+```
+
+Redondeo a $n$ cifras.
+
+```{r}
+round(pi,0)
+round(pi,2)
+round(pi,5)
+```
+
+Comentarios en el script.
+
+```{r}
+2 + 3 # suma
+```
+
+Funciones "techo" y "piso".
+
+```{r}
+ceiling(pi) # el menor de los enteros mayores
+floor(pi) # el mayor de los enteros menores
+```
+
+Asignación a una variable.
+
+```{r}
+# Realizamos las asignaciones
+a <- 2 
+b = 3
+c <- a + b
+d = a * b
+
+# Vemos los valores de las variables
+a
+b
+c
+d
+```
+
+Muestra de texto y resultados
+
+```{r}
+# Mostramos el valor de a
+a
+
+# Mostramos un mensaje de texto
+
+print("El valor de a es")
+
+# Combinamos mensaje de texto y valor de una variable
+print(paste("El valor de a es", a))
+
+# Combinamos mensaje de texto y operación
+print(paste("El cuadrado de 3 es", 3^2))
+```
+
+Intervalos de números
+
+```{r}
+1:5.5 # números enteros entre 1 y 5.5
+seq(1, 5.5, 1) # igual que la línea previa
+seq(1, 5.5, 0.5) # números entre 1 y 5.5 espaciados en 0.5
+```
+
+Sumatorias y productorias:
+
+$$
+\sum_{i=1}^n i = 1 + 2 + \cdots + n, 
+$$
+
+$$
+\prod_{i=1}^n i = 1 \cdot 2 \cdot \cdots \cdot n.
+$$
+
+```{r}
+sum(1:5) # suma de los 5 primeros números naturales
+prod(1:5) # producto de los 5 primeros números naturales
+```
+
+Factorial de un número:
+
+$$
+n! = n \cdot (n-1) \cdot \cdots \cdot 3 \cdot 2 \cdot 1.
+$$
+
+```{r}
+factorial(3)
+```
+
+## Operadores lógicos
+
+Igualdad
+
+```{r}
+2 + 3 == 5
+2 + 3 == 6
+```
+
+Conjunción
+
+```{r}
+(2 > 0) & (3 > 0)
+(2 > 0) & (3 <= 0)
+```
+
+Disyunción
+
+```{r}
+(2 > 0) | (3 <= 0)
+(2 < 0) | (3 < 0)
+```
+
+Negación
+
+```{r}
+2 + 3 != 6
+!(2 > 0)
+
+```
+
+## Definición de funciones
+
+R permite crear funciones propias.
+
+```{r}
+# Definamos una funcición que calcule el doble de un número
+
+doble <- function(x){
+  return(2 * x)
+}
+
+# Calculemos el doble de 5
+doble(5)
+```
+
+## Vectores
+
+```{r}
+# Creamos un vector
+v <- c(1, 8, 5, 6, 4, 2, 3, 3, -1, -2)
+
+# Vemos el vector creado
+v
+```
+
+## Máximos y mínimos
+
+```{r}
+max(v) # máximo valor del vector v
+min(v) # mínimo valor del vector v
+```
+
+```{r}
+# Vemos en qué posición se alcanzaron los valores extremos
+which.max(v) # posición del valor máximo
+which.min(v) # posición del valor mínimo
+```
+
+¿Qué pasa si los valores extremos se repiten?
+
+```{r}
+w <- c(8, 8, 5, 6, 4, 2, 3, 3, -1, -2)
+which.max(w)
+```
+
+Vemos que la función `which.max()` devuelve la primera posición donde de alcanza el valor máximo.
+
+```{r}
+which(w == max(w)) # todas las posiciones donde se alcanza el valor máximo
+```
+
+## Paquetes
+
+Al ser un entorno colaborativo, existe una gran cantidad de *paquetes* que amplían la funcionalidad básica de R, estandarizando la distribución del código. En general, un paquete consiste en un conjunto de funciones relacionadas con un tema específico.
+
+```{r, eval = FALSE}
+install.packages("tidyverse") # instala el paquete indicado (hay que ejecutar este comando una única vez)
+```
+
+Para cargar un paquete podemos usar tanto la función `require()` como la función `library()`. La diferencia es que en el caso en que un paquete no esté instalado, la primera genera un mensaje de advertencia (warning) y continúa con la ejecución del código, mientras que la segunda genera un mensaje de error e interrumpe la ejecución.
+
+```{r}
+library("tidyverse") # carga el paquete (hay que ejecutar este comando cada vez que se inicia sesión)
+require("tidyverse") # carga el paquete (hay que ejecutar este comando cada vez que se inicia sesión)
+```
+
+## Ruta
+
+```{r}
+# Cargamos paquete necesario
+library(rstudioapi)
+```
+
+```{r}
+# Fijamos ruta de trabajo
+setwd(dirname(getActiveDocumentContext()$path))
+```
+
+```{r}
+# Comprobamos ruta
+getwd()
+```
+
+## Archivos
+
+```{r}
+# Leemos un archivo csv
+ej1 <- read.csv("Ejemplo.csv")
+ej1
+```
+
+```{r}
+library(openxlsx)
+# Leemos un archivo xlsx
+ej2 <- read.xlsx("Ejemplo.xlsx")
+ej2
+```
+
+## Data frames
+
+Es una estructura de datos fundamental en el entorno `R`, puesto que muchos paquetes requieren que los datos estén en este formato.
+
+Para convertir un objeto a este formato, se usa la función `as.data.frame()`.
+
+```{r}
+class(ej2)
+```
+
+Vemos que el objeto `ej2` ya está en formato de data frame.
+
+Vamos a cambiar el nombre de columnas y agregar nombre a sus filas.
+
+```{r}
+colnames(ej2) <- c("Columna1", "Columna2")
+rownames(ej2) <- c("Fila1", "Fila2", "Fila3", "Fila4", "Fila5", "Fila6", "Fila7")
+
+ej2
+```
+
+Veamos los atributos del data frame.
+
+```{r}
+attributes(ej2)$names
+```
+
+Podemos acceder a los atributos, mediante sus nombres.
+
+```{r}
+ej2$Columna1
+ej2$Columna2
+```
+
+¿Qué sucede si no indicamos el data frame?
+
+```{r}
+Columna1
+```
+
+Sin embargo, si adjuntamos el data frame al entorno de trabajo, este error se soluciona.
+
+```{r}
+attach(ej2)
+```
+
+```{r}
+Columna1
+```
+
+Cuando se está trabajando con varias bases de datos en simultáneo, esto podría traer inconvenientes si atributos correspondientes a distintos objetos tienen el mismo nombre. En ese caso, es recomendable "desadjuntar" la base de datos.
+
+```{r}
+detach(ej2)
+```
+
+```{r}
+Columna1
+```
+
+¿Cómo podemos crear un data frame?
+
+```{r}
+datos <- data.frame(Letra = c("A", "C", "B"), 
+                    Orden = c(1,3,2))
+datos
+```

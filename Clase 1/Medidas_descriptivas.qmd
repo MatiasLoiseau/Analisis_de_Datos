@@ -1,0 +1,146 @@
+---
+title: "Medidas de Estadística Descriptiva"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+## Base de datos
+
+```{r}
+# Cargamos la base de datos
+data("iris")
+```
+
+```{r}
+# Vemos la documentación disponible
+help(iris)
+```
+
+```{r}
+# Vemos las primeras filas
+head(iris)
+```
+
+```{r}
+# Vemos el tipo de objeto 
+class(iris)
+```
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+# Guardamos los atributos de la estructura de datos 
+LS <- iris$Sepal.Length # longitud del sépalo
+AS <- iris$Sepal.Width # ancho del sépalo
+LP <- iris$Petal.Length # longitud del pétalo
+AP <- iris$Petal.Width # ancho del pétalo
+Es <- iris$Species # especies
+
+# Vemos algunos de los atributos
+LS
+Es
+```
+
+## Exploración de los datos
+
+```{r, message = FALSE, warning=FALSE}
+# Cargamos paquete necesario
+library(tidyverse)
+```
+
+```{r}
+iris %>% 
+  filter(Petal.Length > 6.5) # filtramos los datos que cumplan cierta condición
+```
+
+```{r}
+iris %>% 
+  filter(Petal.Length > 6.5) %>%
+  arrange(desc(Petal.Width)) # ordenamos los datos bajo algún criterio
+```
+
+```{r}
+iris %>%
+  select(Petal.Length, Petal.Width) # elegimos algunas variables
+```
+
+```{r}
+iris %>%
+  count(Species, sort = TRUE, name="Registros") # contamos los datos bajo alguna condición
+```
+
+```{r}
+sample_n(iris, 5) # elegimos una muestra aleatoria de tamaño 5
+```
+
+## Medidas estadísticas descriptivas
+
+Media
+
+```{r}
+mean(LP) # media de la longitud del pétalo
+```
+
+```{r}
+# calculemos la media de la longitud del pétalo por especie
+iris %>% 
+  group_by(Species) %>%
+  summarize(Long.Pétalo = mean(Petal.Length))
+
+```
+
+Mediana
+
+```{r}
+median(LP) # mediana de la longitud del pétalo
+```
+
+Moda
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+table(LP) # cuenta las veces que aparece cada valor
+names(which(table(LP) == max(table(LP)))) # moda de la longitud del pétalo
+```
+
+Rango
+
+```{r}
+range(LP) # rango de la longitud del pétalo
+```
+
+Varianza
+
+```{r}
+var(LP) # varianza de la longitud del pétalo
+```
+
+Desvío estándar
+
+```{r}
+sd(LP) # desvío estándar de la longitud del pétalo
+```
+
+Cuartiles
+
+```{r}
+Q1 <- quantile(LP, probs = 0.25, type = 2) # primer cuartil de la longitud del pétalo
+Q3 <- quantile(LP, probs = 0.75, type = 2) # tercer cuartil de la longitud del pétalo
+IQR <- as.vector(Q3 - Q1) # rango intercuartil
+
+Q1
+Q3
+IQR
+```
+
+Percentiles
+
+```{r}
+quantile(LP, probs = c(0.95, 0.90, 0.85), type = 2) # percentiles 95, 90 y 85 de la longitud del pétalo
+```
+
+```{r}
+summary(iris) # calcula varias medidas estadìsticas descriptivas
+```

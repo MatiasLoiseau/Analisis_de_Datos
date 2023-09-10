@@ -1,0 +1,117 @@
+---
+title: "Gráficos Bivariados con Variables Numéricas"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+data(ChickWeight)
+```
+
+```{r}
+View(ChickWeight)
+```
+
+Las variables son:
+
+-   *weight*: peso corporal del pollito en gramos;
+
+-   *Time*: cantidad de días desde el nacimiento hasta el momento de la medición;
+
+-   *Chick*: identificador de cada pollito;
+
+-   *Diet*: tipo de dieta experimental.
+
+```{r, warning=FALSE}
+library(ggplot2)
+```
+
+# Una variable nominal y una variable numérica
+
+## Histogramas agrupados
+
+```{r}
+ggplot(ChickWeight, aes(x = weight, fill = Diet)) +
+  geom_histogram(alpha = 0.5) +
+  xlab("Pesos (gramos)") +
+  ylab("") +
+  labs(fill = "Dieta")
+```
+
+Vemos, por ejemplo, que hay muy pocos pollitos con un peso superior a los 300 gramos.
+
+La mayoría de los pollitos pesan entre 50 y 150 gramos.
+
+## Gráficos de densidad agrupados
+
+```{r}
+ggplot(ChickWeight, aes(x = weight, fill = Diet)) +
+  geom_density(alpha = 0.4) +
+  xlab("Peso (gramos)") +
+  ylab("") +
+  labs(fill = "Dieta")
+```
+
+Si bien muestra lo mismo que un histograma, es más clara la visualización en las zonas donde hay superposición.
+
+Por ejemplo, la mayoría de los pollitos bajo la dieta 1, tienen un peso inferior a 150 gramos, alcanzando un pico cercano a los 75 gramos. Por otra parte, los pollitos que se alimentan según la dieta 4 muestran tener un comportamiento más uniforme en sus pesos entre los 50 y los 200 gramos.
+
+## Boxplots por grupo
+
+```{r}
+ggplot(ChickWeight, aes(x = Diet, y = weight, fill = Diet)) +
+  geom_boxplot() +
+  xlab("Dieta") +
+  ylab("Peso (gramos)") +
+  theme(legend.position = "none")
+```
+
+Podemos observar, por ejemplo, que la mediana es mayor para la dieta 4. La dieta 3 es la que presenta mayor dispersión.
+
+En el caso de las dietas 1 y 2, existen outliers con pesos muy altos.
+
+## Gráficos de violín
+
+```{r}
+ggplot(ChickWeight, aes(x = Diet, y = weight, fill = Diet)) +
+  geom_violin() +
+  geom_boxplot(fill = "white", width = 0.15) +
+  xlab("Dieta") +
+  ylab("Peso (gramos)") +
+  theme(legend.position = "none")
+```
+
+# Dos variables numéricas
+
+## Scatterplot
+
+```{r}
+ggplot(ChickWeight, aes(x = Time, y = weight)) +
+  geom_point(color = "violet") +
+  xlab("Días desde el nacimiento") +
+  ylab("Peso (gramos") 
+```
+
+¿Podemos observar alguna relación lineal?
+
+```{r}
+ggplot(ChickWeight, aes(x = Time, y = weight)) +
+  geom_point(color = "pink2") +
+  geom_smooth(method = "lm", color = "purple") +
+  xlab("Días desde el nacimiento") +
+  ylab("Peso (gramos") 
+
+```
+
+Al agregar la recta de ajuste, si bien se observa una relación lineal positiva, la misma no es perfecta. Comprobemos esto calculando el coeficiente de correlación.
+
+```{r}
+cor(ChickWeight$Time, ChickWeight$weight)
+```
+
+Comprobamos lo que sospechábamos.
+
+## Gráficos de líneas
+
+Los vamos a estudiar en detalle cuando veamos series de tiempo.

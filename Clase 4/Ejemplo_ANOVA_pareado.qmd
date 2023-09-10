@@ -1,0 +1,122 @@
+---
+title: "Ejemplo de aplicación: ANOVA con variables dependientes"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(rstudioapi)
+library(readxl)
+library(ggplot2)
+library(reshape)
+library(tidyverse)
+```
+
+```{r}
+# Fijamos ruta de trabajo
+setwd(dirname(getActiveDocumentContext()$path))
+```
+
+```{r}
+Dieta <- read_excel("Dieta.xlsx")
+View(Dieta)
+```
+
+```{r}
+colnames(Dieta) <- c("Individuo", "Antes", "Semana2", "Semana4")
+attach(Dieta)
+```
+
+Vamos a utilizar las siguientes variables:
+
+-   *Antes*: peso en kilos antes de empezar la dieta;
+
+-   *Semana2*: peso en kilos a la segunda semana de empezar la dieta;
+
+-   *Semana4*: peso en kilos a la cuarta semana de empezar la dieta.
+
+Grafiquemos los boxplots.
+
+```{r}
+mat <- as.matrix(Dieta[,2:4]) # variables numéricas
+rownames(mat) <- Individuo # nombre de filas
+dieta <- melt(mat) # formato de matriz larga
+colnames(dieta) <- c("Individuo", "Momento", "Peso") # nombre de columnas
+```
+
+```{r}
+
+ggplot(data = dieta, aes(x = Momento, y = Peso, fill = Momento)) +
+  geom_boxplot() +
+  ylab("Peso (en kilos)") +
+  theme(legend.position = "none")
+```
+
+## Supuestos
+
+[**Identificación de outliers**]{.underline}
+
+```{r, message=FALSE}
+library(rstatix)
+```
+
+```{r}
+dieta %>%
+  group_by(Momento) %>%
+  identify_outliers(Peso)
+```
+
+No hay outliers.
+
+[**Normalidad**]{.underline}
+
+Miremos los Q-Q plot normales por grupo.
+
+```{r, message=FALSE, warning=FALSE}
+library(ggpubr)
+```
+
+```{r}
+ggqqplot(dieta, "Peso", facet.by = "Momento", color = "violet")
+```
+
+```{r}
+dieta %>%
+  group_by(Momento) %>%
+  shapiro_test(Peso)
+```
+
+Se cumple el supuesto de normalidad.
+
+[**Esfericidad**]{.underline}
+
+Se puede analizar con la función `anova_test()` como vamos a ver a continuación.
+
+## ANOVA pareado
+
+```{r}
+aov_pareado <- anova_test(data = dieta, dv = Peso, wid = Individuo, within = Momento)
+get_anova_table(aov_pareado)
+```
+
+Observamos lo siguiente:
+
+-   El estadístico $F$ dio un valor de $12.462$ y fue comparado con una distribución $\mathcal{F}_{2,6}$.
+
+-   El $p$-valor es igual a $0.007$, por lo que se rechaza la hipótesis nula. Esto significa que el peso fue significativamente diferente en los distintos momentos considerados de la dieta.
+
+-   El tamaño del efecto generalizado; es decir, la cantidad de variabilidad debida al factor dentro de los individuos, es igual a $0.072$, siendo el mismo un valor moderado.
+
+-   El $p$-valor del test de Mauchly es igual a $0.462$ (ver la salida del siguiente código), por lo que vale el supuesto de esfericidad.
+
+-   La corrección de Greenhouse-Geisser (GG) para el coeficiente de esfericidad es igual a $0.65$ (ver la salida del siguiente código).
+
+-   La corrección de Huynh-Feldt (HF) para el coeficiente de esfericidad es igual a $0.941$ (ver la salida del siguiente código).
+
+```{r}
+aov_pareado$`Mauchly's Test for Sphericity`
+aov_pareado$`Sphericity Corrections`
+```

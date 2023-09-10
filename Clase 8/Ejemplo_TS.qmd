@@ -1,0 +1,286 @@
+---
+title: "Ejemplo de aplicación: Exploración de una serie de tiempo"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(ggthemes)
+```
+
+```{r}
+data("AirPassengers")
+AirPassengers
+```
+
+Es una serie de tiempo con el total de pasajeros en vuelos internacionales entre los años 1949 y 1960.
+
+```{r}
+class(AirPassengers)
+```
+
+Vemos que los datos ya están en formato de serie de tiempo.
+
+## Visualización
+
+Grafiquemos la serie de tiempo.
+
+```{r}
+plot.ts(AirPassengers, col ="royalblue", xlab = "Año", ylab = "Pasajeros")
+```
+
+Según el gráfico parece ser más apropiada la descomposición multiplicativa. Sin embargo, vamos a estudiar los dos tipos de descomposición.
+
+# Descomposición aditiva
+
+Calculamos la descomposición.
+
+```{r}
+pasajeros_da <- decompose(AirPassengers, type = "additive")
+```
+
+## Tendencia
+
+Grafiquemos la componente de tendencia.
+
+```{r}
+plot.ts(pasajeros_da$trend, col = "purple", xlab = "Año", ylab = "Pasajeros")
+```
+
+Podemos observar una marcada tendencia positiva. Calculemos la fuerza de la tendencia.
+
+```{r}
+varR <- var(na.omit(pasajeros_da$random))
+varTR <- var(na.omit(pasajeros_da$trend) + na.omit(pasajeros_da$random))
+1 - varR / varTR
+```
+
+Efectivamente, hay una fuerte presencia de una tendencia.
+
+Otra manera de estimar la tendencia es con la media móvil.
+
+```{r, message=FALSE, warning=FALSE}
+library(forecast)
+```
+
+```{r}
+tendencia_da <- ma(AirPassengers, order = 12)
+plot.ts(AirPassengers, col = "royalblue", xlab = "Año", ylab = "Pasajeros")
+lines(tendencia_da, col = "purple")
+```
+
+¿Qué sucede si la eliminamos?
+
+```{r}
+pasajeros_detrend_a <- AirPassengers - pasajeros_da$trend
+plot.ts(pasajeros_detrend_a, col = "purple", xlab = "Años", ylab = "Pasajeros")
+```
+
+## Estacionalidad
+
+Grafiquemos la componente de estacionalidad.
+
+```{r}
+plot.ts(pasajeros_da$seasonal, col = "violet", xlab = "Año", ylab = "Pasajeros")
+```
+
+Podemos observar una marcada estacionalidad. Calculemos la fuerza de la misma.
+
+```{r}
+varR <- var(na.omit(pasajeros_da$random))
+varSR <- var(na.omit(pasajeros_da$seasonal) + na.omit(pasajeros_da$random))
+1 - varR / varSR
+```
+
+Efectivamente, hay una considerable presencia de una tendencia. ¿Qué sucede si la eliminamos?
+
+```{r}
+pasajeros_deseasonal_a <- AirPassengers - pasajeros_da$seasonal
+plot.ts(pasajeros_deseasonal_a, col = "violet", xlab = "Años", ylab = "Pasajeros")
+```
+
+## Residuos
+
+Grafiquemos la componente residual.
+
+```{r}
+plot.ts(pasajeros_da$random, col = "cyan", xlab = "Año", ylab = "Pasajeros")
+```
+
+# Descomposición multiplicativa
+
+Calculamos la descomposición.
+
+```{r}
+pasajeros_dm <- decompose(AirPassengers, type = "multiplicative")
+```
+
+## Tendencia
+
+Grafiquemos la componente de tendencia.
+
+```{r}
+plot.ts(pasajeros_dm$trend, col = "purple", xlab = "Año", ylab = "Pasajeros")
+```
+
+Podemos observar una marcada tendencia positiva. Calculemos la fuerza de la tendencia.
+
+```{r}
+varR <- var(na.omit(pasajeros_dm$random))
+varTR <- var(na.omit(pasajeros_dm$trend) * na.omit(pasajeros_dm$random))
+1 - varR / varTR
+```
+
+Efectivamente, hay una fuerte presencia de una tendencia. Obsevar que la fuerza de la tendencia es mayor que el caso de la descomposición aditiva.
+
+¿Qué sucede si la eliminamos?
+
+```{r}
+pasajeros_detrend_m <- AirPassengers / pasajeros_dm$trend
+plot.ts(pasajeros_detrend_m, col = "purple", xlab = "Años", ylab = "Pasajeros")
+```
+
+## Estacionalidad
+
+Grafiquemos la componente de estacionalidad.
+
+```{r}
+plot.ts(pasajeros_dm$seasonal, col = "violet", xlab = "Año", ylab = "Pasajeros")
+```
+
+Podemos observar una marcada estacionalidad. Calculemos la fuerza de la misma.
+
+```{r}
+varR <- var(na.omit(pasajeros_dm$random))
+varSR <- var(na.omit(pasajeros_dm$seasonal) * na.omit(pasajeros_dm$random))
+1 - varR / varSR
+```
+
+Efectivamente, hay una fuerte presencia de una tendencia. Nuevamente, con mucha mayor fuerta que en la descomposición aditiva. ¿Qué sucede si la eliminamos?
+
+```{r}
+pasajeros_deseasonal_m <- AirPassengers / pasajeros_dm$seasonal
+plot.ts(pasajeros_deseasonal_m, col = "violet", xlab = "Años", ylab = "Pasajeros")
+```
+
+## Residuos
+
+Grafiquemos la componente residual.
+
+```{r}
+plot.ts(pasajeros_dm$random, col = "cyan", xlab = "Año", ylab = "Pasajeros")
+```
+
+# Lag-plot
+
+```{r}
+gglagplot(AirPassengers, lags = 6, diag.col = "purple", do.lines = FALSE,
+          colour = FALSE) +
+  theme_hc() +
+  theme(legend.position = "none",
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+```
+
+Vemos una fuerte relación lineal positiva para el primer lag, disminuyendo a medida que la cantidad de lags aumenta.
+
+# Autocorrelación
+
+Calculamos la autocorrelación y graficamos el autocorrelograma.
+
+```{r}
+autocor <- Acf(AirPassengers, lag.max = 60, ci.col="purple", type = "correlation", main = "")
+```
+
+Vemos que las autocorrelaciones son muy elevadas para un número pequeño de lag y comienzan a disminuir a medida que aumentan los lags. Esto marca la presencia de tendencia. La forma ondulada indica la presencia de estacionalidad también.
+
+Si queremos obtener los valores de autocorrelación, podemos ejecutar el siguiente código.
+
+```{r}
+# Autocorrelaciones para los primeros 4 lags
+autocor[1:4]
+```
+
+Realicemos ahora el gráfico de la autocorrelación parcial.
+
+```{r}
+autocor <- Acf(AirPassengers, lag.max = 60, ci.col="purple", type = "partial", main = "")
+```
+
+## Autocorrelación de los residuos
+
+Para el caso de la descomposición aditiva, el autocorrelograma de los residuos se puede graficar como sigue.
+
+```{r}
+Acf(pasajeros_da$random, lag.max = 60, ci.col="purple", type = "correlation", main = "")
+```
+
+Vemos que la autocorrelación empieza a ser despreciable a partir del lag 38. Para ver los valores realizamos lo siguiente.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+Acf(pasajeros_da$random, lag.max = 60, plot = FALSE)
+```
+
+Vemos que $r_1 = 0.654$.
+
+Para el caso de la descomposición multiplicativa, el autocorrelograma de los residuos se puede graficar como sigue.
+
+```{r}
+Acf(pasajeros_dm$random, lag.max = 60, ci.col="purple", type = "correlation", main = "")
+```
+
+Vemos que la autocorrelación empieza a ser despreciable a partir del lag 26. Para ver los valores realizamos lo siguiente.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+Acf(pasajeros_dm$random, lag.max = 60, plot = FALSE)
+```
+
+Vemos que $r_1 = 0.403$.
+
+# Estacionariedad
+
+Vamos a analizar estadísticamente si los residuos obtenidos por ambas descomposiciones son estacionarios o no.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+# Para los errores de la descomposición aditiva
+Acf(pasajeros_dm$random, lag.max = 60, plot = FALSE)
+
+```
+
+## Test de Durbin-Watson
+
+Definamos una función para calcular el estadístico de Durbin-Watson.
+
+```{r}
+estDW <- function(e){
+  cuad <- 0
+  for (t in 2:length(e)){
+    cuad[t-1] <- (e[t]-e[t-1])^2
+  }
+  return(sum(cuad) / sum(e^2))
+}
+```
+
+Calculemos el estadístico de Durbin-Watson para cada descomposición.
+
+```{r}
+# Descomposición aditiva
+DW_res_da <- estDW(na.omit(pasajeros_da$random))
+DW_res_da
+
+# Descomposición multiplicativa
+DW_res_dm <- estDW(na.omit(pasajeros_dm$random))
+DW_res_dm
+```
+
+Vemos que en ambos casos el estadístico de Durbin-Watson es menor que 1, lo que indica una autocorrelación positiva significativa.
+
+Estamos observando que los residuos no son estacionarios, por lo que estas descomposiciones no serían buenas para realizar pronósticos.

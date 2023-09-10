@@ -1,0 +1,203 @@
+---
+title: "Gráficos Multivariados"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+data(Salaries, package="carData")
+```
+
+```{r}
+View(Salaries)
+```
+
+Vamos a trabajar con las siguientes variables:
+
+-   *rank*: grado de profesor, que puede ser AsstProf, AssoProf, Prof;
+
+-   *yrs.service*: antigüedad docente en años;
+
+-   *yrs.since.phd*: años desde la finalización del doctorado;
+
+-   *salary*: salario por nueve meses en dólares.
+
+`{r. message = FALSE, warning=FALSE} attach(Salaries)`
+
+Estructuramos los datos.
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
+```{r}
+# Elegimos las variables numéricas y el grado de profesor
+
+prof <- Salaries %>%
+  select(c(yrs.service, yrs.since.phd, salary, rank)) %>%
+  setNames(c("Antigüedad", "Doctorado", "Salario", "Grado")) 
+
+```
+
+## Matriz de scatterplots
+
+```{r, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(ggthemes)
+library(GGally)
+```
+
+Vamos a analizar la relación lineal entre las variables numéricas.
+
+```{r}
+# Debemos aplicarlo para variables numéricas
+ggpairs(data = prof, columns = 1:3,
+        diag = list(continuous = wrap("densityDiag", fill = "pink", color="violet")))
+```
+
+Podemos observar una fuerte relación lineal positiva ($\rho=0.910$) entre la antigüedad docente y los años que transcurrieron desde que la persona obtuvo su título de doctorado. Por otra parte, si bien se percibe cierta relación lineal entre antigüedad versus salario y entre años de finalización del doctorado versus salario, las mismas son muy leves, con $\rho=0.335$ y $\rho=0.419$, respectivamente.
+
+En cuanto al salario (esquina inferior derecha), vemos que hay muy pocas personas con un salario superior a los 200000 dólares. La mayoría de los profesores ganan entre 75000 y 150000 dólares, con un pico de concentración rondando los 100000 dólares.
+
+> ¿Qué sucede si repetimos en análisis pero por grado docente?
+
+```{r}
+ggpairs(data = prof, columns = 1:3, mapping = aes(color = Grado))
+```
+
+En cuanto a la relación lineal entre la antigüedad docente y los años que transcurrieron desde que la persona obtuvo su título de doctorado, vemos que la misma es más fuerte en el caso de Profesores Asociados ($\rho = 0.927$), mientras que la misma es baja en el caso de Profesores Asistentes ($\rho=0.460$).
+
+Por otra parte, es interesante observar que los coeficientes de correlación entre los años que transcurrieron desde la obtención del título de doctorado y el salario, son negativos para los tres grados docentes. Sin embargo, la correlación de la población completa es positiva.
+
+Si analizamos las variables de interés de manera individual, debemos observar la diagonal de la matriz de scaterplots. Podemos observar, por ejemplo, que tanto el salario como las antigüedades docente y de doctorado son mayores cuanto mayor es el grado docente (el pico en las funciones de densidad se va desplazando hacia la derecha).
+
+## Caras de Chernoff
+
+```{r}
+# Fijamos una semilla para obtener la misma corrida
+set.seed(1111)
+
+# Separamos los datos por grado docente
+
+Profesor <- prof %>%
+  filter(Grado == "Prof")
+
+Prof.Asociado <- prof %>%
+  filter(Grado == "AssocProf")
+
+Prof.Asistente <- prof %>%
+  filter(Grado == "AsstProf")
+
+# Elegimos 10 registros de cada grupo
+
+prof.sample <- rbind(Profesor %>% sample_n(5),
+  Prof.Asociado %>% sample_n(5),
+  Prof.Asistente %>% sample_n(5))
+
+prof.sample
+```
+
+Vamos a aplicar esta visualización para la muestra anterior, ya que la misma es confusa cuando la cantidad de registros es muy grande.
+
+```{r, warning=FALSE}
+library(aplpack)
+```
+
+```{r}
+faces(prof.sample[,1:3], labels = prof.sample$Grado, cex = 1.1, nrow.plot = 3, ncol.plot = 5)
+```
+
+Podemos observar las siguientes similitudes:
+
+-   Profesores Asistentes: alto, ancho y estructura de la cara , alto y ancho de los ojos, alto y ancho del cabello, alto y ancho de las narices. De esta manera vemos que las tres variables son muy distintivas de este grupo empezando por la antigüedad docente, seguida del salario.
+
+-   Profesores Asociados: alto de la cara, alto de los ojos, estilo del cabello. La antigüedad es la variable que mejor distingue a este grupo.
+
+-   Profesores: ancho de los ojos, estilo del cabello. La cantidad de años desde la obtención del título de doctorado es la variable que mejor distingue a este grupo.
+
+La segunda cara de la segunda fila es claramente un outlier.
+
+## Glifos de estrellas
+
+Por las mismas razones que en el caso de las caras de Chernoff vamos a trabajar con la muestra elegida, lo cual puede condicionar las conclusiones.
+
+```{r}
+par(mar = c(0,0,0,0))
+stars(prof.sample[,1:3], labels = as.character(prof.sample$Grado), cex = 0.6,
+      col.stars = rep("pink",9), nrow = 3, ncol = 5)
+```
+
+Podemos observar que las tres variables consideradas toman valores más pequeños en el caso de los Profesores Asistentes, lo cual es muy razonable. Estos valores aumentan en el caso de los Profesores Asociados y se maximizan en el caso de los Profesores.
+
+Nuevamente, vemos una comportamiento extraño en el segundo glifo de la segunda fila.
+
+## Mapa de calor
+
+```{r, warning=FALSE, message=FALSE}
+library(reshape)
+```
+
+Primero necesitamos darle cierta estructura a los datos.
+
+```{r}
+mat <- as.matrix(prof[,1:3])
+rownames(mat) <- prof$Grado
+head(mat)
+```
+
+```{r}
+# Transformamos la matriz en long format
+mat.prof <- melt(mat)
+colnames(mat.prof) <- c("x", "y", "Valor")
+head(mat.prof)
+```
+
+```{r}
+ggplot(mat.prof, aes(x = y, y = x, fill = Valor)) +
+  geom_tile(color = "gray") +
+  scale_fill_gradientn(colors = rev(hcl.colors(20, "RdPu"))) +
+  xlab("") +
+  ylab("") +
+  theme_hc() +
+  theme(axis.text = element_text(size=9),
+        legend.position = "right")
+```
+
+No se distinguen diferencias porque los valores en años y en dólares tienen escalas muy distintas.
+
+```{r}
+
+# Quitamos el salario
+prof.tiempo <- mat.prof %>%
+  filter(x != "Salario" & y != "Salario")
+
+ggplot(prof.tiempo, aes(x = y, y = x, fill = Valor)) +
+  geom_tile(color = "gray") +
+  scale_fill_gradientn(colors = rev(hcl.colors(20, "RdPu"))) +
+  xlab("") +
+  ylab("") +
+  theme_hc() +
+  theme(axis.text = element_text(size=9),
+        legend.position = "right")
+```
+
+Resulta evidente que la antigüedad docente es mayor para los Profesores, y en mayor medida el tiempo transcurrido desde la obtención del título de doctorado. Por otra partes, estas variables no registran demasiada diferencia entre los Profesores Asistentes y Asociados.
+
+```{r}
+
+# Analizamos sólo el salario
+prof.salario <- mat.prof %>%
+  filter(x == "Salario" | y == "Salario")
+
+ggplot(prof.salario, aes(x = y, y = x, fill = Valor)) +
+  geom_tile(color = "gray") +
+  scale_fill_gradientn(colors = rev(hcl.colors(20, "RdPu"))) +
+  xlab("") +
+  ylab("") +
+  theme_hc() +
+  theme(axis.text = element_text(size=9),
+        legend.position = "right")
+```
+
+Si bien la tonalidad es muy similar, pueden ordenarse los salarios desde el rosa más claro al más oscuro, siendo los Profesores Asistentes quienes menos ganan, seguidos por los Profesores Asociados y luego por los Profesores.

@@ -1,0 +1,112 @@
+---
+title: "Distribuciones"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+## Distribución Normal
+
+Distribución Normal estándar con $\mu=0$ y $\sigma^2=1$ .
+
+```{r}
+dnorm(0) # función de densidad para x=0; es decir, f(0)
+dnorm(6) # función de densidad para x=6; es decir, f(6)
+```
+
+```{r}
+pnorm(0) # función de distribución para x=0; es decir, P(x<0)
+pnorm(6) # función de fistribución para x=6; es decir, P(x<6)
+```
+
+```{r}
+# Vamos a graficar la función de densidad de probabilidad
+plot(function(x) dnorm(x), -6, 6, col = "violet")
+
+```
+
+```{r}
+# Vamos a graficar la función de distribución
+plot(function(x) pnorm(x), -6, 6, col = "violet")
+```
+
+```{r}
+n <- 1000 # cantidad de datos
+z <- rnorm(n) # generamos n datos distribuidos normalmente
+
+# Veamos la distribución de estos datos
+hist(z, col = "violet", nclass = 50)
+```
+
+Distribución Normal con media $\mu$ y varianza $\sigma^2$ .
+
+```{r}
+plot(function(x) dnorm(x, mean = 0, sd = 1/2), -6, 6, col = "violet") # distribución normal con media 0 y varianza 1/4
+curve(dnorm(x, mean = 0, sd = 2), add = TRUE, col = "purple") # distribución normal con media 0 y varianza 4
+```
+
+```{r}
+plot(function(x) dnorm(x, mean = 1, sd = 1), -6, 6, col = "violet") # distribución normal con media 1 y varianza 1
+curve(dnorm(x, mean = -1, sd = 1), add = TRUE, col = "purple") # distribución normal con media -1 y varianza 1
+```
+
+```{r}
+n <- 1000 # cantidad de datos
+u <- runif(1000) # generamos n datos distribuidos uniformemente
+
+# Veamos la distribución de estos datos
+hist(u, col = "violet", nclass = 50)
+```
+
+## Asimetría
+
+```{r, warning=FALSE}
+# Cargamos paquetes necesarios
+library(moments)
+library(KbMvtSkew)
+```
+
+```{r}
+# Calculemos el coeficiente de asimetría de datos normales
+
+skewness(z) # coeficiente de asimetría de Fisher
+PearsonSkew(z) # coeficiente de asimetría de Pearson
+BowleySkew(z) # coeficiente de asimetría de Bowley
+```
+
+Observamos que los valores están "cercanos" a cero.
+
+```{r}
+# Calculemos el coeficiente de asimetría de datos uniformes
+
+skewness(u) # coeficiente de asimetría de Fisher
+PearsonSkew(u) # coeficiente de asimetría de Pearson
+BowleySkew(u) # coeficiente de asimetría de Bowley
+```
+
+Observamos que los valores están "cercanos" a cero, pero que la distribución no es Normal.
+
+```{r}
+# Calculemos el coeficiente de asimetría de datos chi cuadrado
+
+n <- 1000
+cc <- rchisq(n, df = 2)
+
+hist(cc, col = "violet", nclass = 50)
+
+skewness(cc) # coeficiente de asimetría de Fisher
+PearsonSkew(cc) # coeficiente de asimetría de Pearson
+BowleySkew(cc) # coeficiente de asimetría de Bowley
+```
+
+Observamos que los valores están "lejanos" a cero, indicando que la distribución **no** es Normal.
+
+## Curtosis
+
+```{r}
+kurtosis(z) # curtosis para datos normales
+kurtosis(u) # curtosis para datos uniformes
+kurtosis(cc) # curtosis para datos chi cuadrado
+```
+
+Vemos que el único caso en donde la curtosis es más cercana a cero es cuando los datos son Normales.

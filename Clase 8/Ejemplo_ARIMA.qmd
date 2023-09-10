@@ -1,0 +1,759 @@
+---
+tation()---
+title: "Ejemplo de aplicación: Pronóstico con series de tiempo"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(rstudioapi)
+library(tidyverse)
+library(ggplot2)
+
+library(ggthemes)
+library(gridExtra)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(fpp2)
+```
+
+Vamos a trabajar con los precios de cierre de las acciones de GOOG en la bolsa NASDAQ, a lo largo de 1000 días hábiles consecutivos entre el 25 de febrero de 2013 y el 13 de febrero de 2017. Para más detalles o descarga de datos actualizados, consultar <https://finance.yahoo.com/quote/GOOG/history?guccounter=1>.
+
+```{r}
+class(goog)
+```
+
+Vemos que está en formato de serie de tiempo. Veamos ahora la cantidad de observaciones.
+
+```{r}
+length(goog)
+```
+
+Grafiquemos la serie de tiempo.
+
+```{r}
+plot.ts(goog, col = "purple", xlab = "Tiempo", ylab = "Precios")
+```
+
+## Transformación Box-Cox
+
+Del gráfico de la serie de tiempo podemos inferir que no hay cambios marcados en la varianza a lo largo del tiempo. Sin embargo, analicemos mejor esta situación.
+
+Elijamos el mejor valor para el parámetro $\lambda$.
+
+```{r}
+lamb <- BoxCox.lambda(goog)
+lamb
+```
+
+Transformamos la serie con el valor de $\lambda$ obtenido.
+
+```{r}
+googBC <- BoxCox(goog, lambda = lamb)
+```
+
+Grafiquemos las series de tiempo original y transformada para poder compararlas.
+
+```{r}
+sto <- autoplot(goog, color = "royalblue", main =  "Serie de tiempo original", xlab = "", ylab = "") +
+  theme_hc() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+stt <- autoplot(googBC, color = "purple", main =  "Serie de tiempo transformada", xlab = "", ylab = "") +
+  theme_hc() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(sto, stt, ncol = 1)
+```
+
+Podemos observar que prácticamente no hay diferencias en las formas de ambas series de datos, por lo que continuaremos trabajando con la serie de tiempo original.
+
+# Descomposiciones
+
+Analicemos la serie de tiempo por día; es decir, estudiando los precios por semana. Como se consideran días hábiles, vamos a considerar una frecuencia de 5 días hábiles por semana -estamos omitiendo feriados-.
+
+```{r}
+goog_semanal <- ts(goog, frequency = 5)
+```
+
+Descomposición aditiva.
+
+```{r}
+good_da <- decompose(goog_semanal, type = "additive")
+autoplot(good_da) + 
+  geom_line(color = "violet") +
+  ggtitle("Descomposición aditiva") +
+  theme_hc() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Descomposición multiplicativa
+
+```{r}
+good_dm <- decompose(goog_semanal, type = "multiplicative")
+autoplot(good_dm) + 
+  geom_line(color = "violet") +
+  ggtitle("Descomposición multiplicativa") +
+  theme_hc() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+En ambas descomposiciones se puede observar una tendencia.
+
+# Pronósticos
+
+Para evaluar los pronósticos que realicemos, vamos a necesitar partir la serie en un conjunto de entrenamiento y en uno de prueba. Observar que en este caso, la elección de las observaciones no debe ser aleatoria sino anteriores y posteriores a una fecha.
+
+Observemos primero las semanas disponibles de los datos.
+
+```{r}
+options(width = 55) #mejora la visual de la salida
+
+goog_semanal[1:10]
+```
+
+Elijamos pronosticar el precio de las acciones en las últimas dos semanas hábiles en función de lo que sucedió en los 990 días hábiles previos.
+
+```{r}
+goog_entrenamiento <- window(goog_semanal, end = c(198,5))
+goog_prueba <- window(goog_semanal, start = c(199,1))
+```
+
+# Suavizado exponencial simple
+
+Elegimos como parámetro de suavizado $\gamma=0.2, 0.5, 0.8$, mediante la opción `alpha`.
+
+```{r}
+# Parámetro 0.2
+goog_ses02 <- ses(goog_entrenamiento,
+                alpha = 0.2,
+                h = 50)
+autoplot(goog_ses02, main = expression(paste("Suavizado exponencial simple con ", gamma==0.2)), ylab = "", xlab = "Tiempo")
+
+# Parámetro 0.5
+goog_ses05 <- ses(goog_entrenamiento,
+                alpha = 0.5,
+                h = 50)
+autoplot(goog_ses05, main = expression(paste("Suavizado exponencial simple con ", gamma==0.5)), ylab = "", xlab = "Tiempo")
+
+# Parámetro 0.8
+goog_ses08 <- ses(goog_entrenamiento,
+                alpha = 0.8,
+                h = 50)
+autoplot(goog_ses08, main = expression(paste("Suavizado exponencial simple con ", gamma==0.8)), ylab = "", xlab = "Tiempo")
+```
+
+Las zonas coloreadas en azul indican los intervalos de confianza del $80\%$ (más oscuro) y del $95\%$ (más claro).
+
+Podemos observar que el modelo de pronóstico proyecta una estimación constante hacia el futuro. Esto podría estar sucediendo debido a que el modelo no pueda captar la tendencia de los precios. Vamos a corregir esto aplicando diferenciación.
+
+## Diferenciación
+
+Aplicamos la diferenciación y observamos la serie de tiempo resultante.
+
+```{r}
+goog_dif <- diff(goog_semanal)
+autoplot(goog_dif, color = "royalblue", xlab = "Tiempo", ylab = "Precios diferenciados")
+```
+
+Podemos observar la eliminación de la tendencia.
+
+Apliquemos la diferenciación en los conjuntos de entrenamiento y prueba.
+
+```{r}
+goog_entrenamiento_dif <- diff(goog_entrenamiento)
+goog_prueba_dif <- diff(goog_prueba)
+```
+
+Volvamos a calcular el suavizado exponencial simple, pero sobre esta nueva serie de tiempo con parámetro $\gamma=0.5$.
+
+```{r}
+goog_dif_ses <- ses(goog_entrenamiento_dif,
+                alpha = 0.5,
+                h = 50)
+autoplot(goog_dif_ses, main = "Suavizado exponencial simple luego de diferenciación", ylab = "", xlab = "Tiempo")
+```
+
+Vamos a analizar el rendimiento de los modelos. Primero vemos el desempeño del suavizado exponencial simple sobre la serie original en función del parámetro $\gamma$. Para ello estudiemos la raíz del error cuadrático medio y la autocorrelación de los errores con lag 1.
+
+```{r}
+options(width = 80)
+
+accuracy(goog_ses02, goog_prueba)[,c(2,7)]
+accuracy(goog_ses05, goog_prueba)[,c(2,7)]
+accuracy(goog_ses08, goog_prueba)[,c(2,7)]
+```
+
+Vemos que la autocorrelación $r_1$ no cambia y que es alta. En cuanto al valor de RMSE, no se ve un patrón en función del valor del parámetro $\gamma$, aunque es grande.
+
+Para analizar el rendimiento del modelo de suavizado exponencial simple sobre la serie de tiempo de las diferencias, es necesario aplicar la diferenciación al conjunto de prueba.
+
+```{r}
+accuracy(goog_dif_ses, goog_prueba_dif)[, c(2,7)]
+```
+
+Vemos que los valores bajaron considerablemente.
+
+## Elección del parámetro $\gamma$
+
+El error cuadrático medio MSE es igual a la suma de los cuadrados de los errores SSE, dividido por la cantidad de residuos. Luego, minimizar el SSE es equivalente a minimizar el MSE. Como la raíz cuadrada es una función creciente, esto es equivalente a minimizar el valor de RMSE.
+
+```{r}
+# Damos distintos valores al parámetro
+gama <- seq(.01, .99, by = .01)
+
+# Inicializamos el vector que guardará RMSE
+RMSE <- NA
+
+# Calculamos RMSE para cada modelo
+for(i in seq_along(gama)) {
+  modelo <- ses(goog_entrenamiento_dif, alpha = gama[i],
+             h = 50)
+  RMSE[i] <- accuracy(modelo, goog_prueba_dif)[2,2]
+}
+```
+
+Visualizamos los valores de RMSE.
+
+```{r}
+sesRMSE <- data.frame(Parámetro = gama, RMSE = RMSE)
+sesRMSE
+```
+
+¿Cuál es el valor de $\gamma$ donde se alcanza el valor mínimo de RMSE?
+
+```{r}
+par_opt <- filter(sesRMSE, RMSE == min(RMSE))
+par_opt
+```
+
+Realicemos una curva con estos resultados.
+
+```{r}
+ggplot(sesRMSE, aes(x = Parámetro, y = RMSE)) +
+  geom_line(color = "purple") +
+  geom_point(data = par_opt, aes(x = Parámetro, y = RMSE), size = 2, color = "magenta")
+```
+
+Vamos a calcular el modelo para el valor óptimo del parámetro $\gamma$.
+
+```{r}
+ses_opt <- ses(goog_entrenamiento_dif, alpha = par_opt$Parámetro, h = 10)
+```
+
+Visualizamos el resultado.
+
+```{r}
+
+autoplot(goog_prueba_dif, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  autolayer(ses_opt, alpha = .5) +
+  ggtitle("Predicciones versus valores reales de la serie de tiempo ") +
+  theme_hc() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## Residuos
+
+Podemos realizar un estudio de los residuos con el siguiente comando.
+
+```{r}
+checkresiduals(ses_opt)
+```
+
+Como el $p$-valor del test de Ljung-Box es menor a $0.05$, se rechaza la hipótesis nula de la no correlación o independencia de los errores, lo que también pude apreciarse a partir del ACF. Del gráfico se observa normalidad de los residuos.
+
+Por otra parte, ponemos calcular el error porcentual absoluto medio (MAPE) muy utilizado para medir la precisión de un sistema de pronóstico.
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+accuracy(ses_opt, goog_prueba_dif)
+
+```
+
+Vemos que MAPE es igual al $173.28\%$, una valor altísimo que significa que los errores son más grandes que los valores reales de la serie de tiempo.
+
+# Estacionariedad
+
+## Test de Phillips-Perron.
+
+Para poder aplicar los modelos que siguen, vamos a analizar la estacionariedad de la serie de tiempo a partir del test de raíz unitaria de Phillips-Perron.
+
+```{r}
+PP.test(goog_semanal)
+```
+
+Como el $p$-valor es mayor que $0.05$, no hay evidencia para rechazar la hipótesis nula que dice que la serie no es estacionaria. Procedemos entonces, como antes, a eliminar la tendencia aplicando la diferenciación.
+
+```{r}
+PP.test(goog_dif)
+```
+
+En este caso, el $p$-valor es menor que $0.05$, lo que indica que debemos rechazar la hipótesis nula, lo que dice que hay evidencia estadísticamente significativa para decir que la serie de tiempo diferenciada es estacionaria.
+
+## Test de Kwiatkowski-Phillips-Schmidt-Shin
+
+También se puede analizar la estacionariedad de la serie de tiempo a partir del test de Kwiatkowski-Phillips-Schmidt-Shin (KPSS).
+
+```{r, message=FALSE, warning=FALSE}
+library(tseries)
+```
+
+```{r}
+kpss.test(goog_semanal)
+```
+
+Como el $p$-valor es menor que $0.05$, rechazamos la hipótesis nula que dice que la serie es estacionaria en tendencia. Procedemos entonces, como antes, a eliminar la tendencia aplicando la diferenciación.
+
+```{r}
+kpss.test(goog_dif)
+```
+
+En este caso, el $p$-valor es mayor que $0.05$, lo que indica que no hay evidencia estadística para rechazar la hipótesis nula, lo que dice que la serie de tiempo diferenciada es estacionaria.
+
+# Modelo de autorregresión
+
+## Orden
+
+Calculemos el PACF.
+
+```{r}
+Acf(goog_dif, lag.max = 15, type = "partial", main = "") 
+```
+
+Se puede observar que a partir del lag 4, los valores comienzan a acercarse significativamente a cero, por lo que 4 es el punto de corte. Esto dice que el orden del modelo AR podría elegirse como $p=4$.
+
+Podemos calcular los valores del criterio de información que Akaike para distintos órdenes del modelo AR.
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+AIC_AR <- vector()
+for (p in 1:15){
+  modelo <- arima(goog_entrenamiento_dif, order = c(p,0,0))
+  AIC_AR[p] <- modelo$aic
+}
+AIC_AR
+```
+
+Calculemos el orden para el cual el valor de AIC es menor y grafiquemos la curva de AIC.
+
+```{r}
+AIC_AR <- data.frame(Órden = 1:15, AIC = AIC_AR)
+minAIC_AR <- filter(AIC_AR, AIC == min(AIC))
+minAIC_AR
+
+ggplot(AIC_AR, aes(x = Órden, y = AIC)) +
+  geom_line(color = "purple") +
+  geom_point(data = minAIC_AR, aes(x = Órden, y = AIC), size = 2, color = "magenta")
+```
+
+Vemos que según este método, el orden 4 también es el recomendado.
+
+## Modelo AR
+
+Armamos el modelo AR(4).
+
+```{r}
+AR <- arima(goog_entrenamiento_dif, order = c(4,0,0), method = "ML")
+round(summary(AR)$coef, 4)
+```
+
+El modelo está dado por la ecuación:
+
+$$
+x_t = 0.4351 + 0.0314 x_{t-1} - 0.0052 x_{t-2} - 0.0602 x_{t-3} - 0.0489 x_{t-4}.
+$$
+
+Predecimos con el modelo.
+
+```{r}
+predAR <- forecast(AR, h = 10)
+```
+
+Evaluamos el modelo.
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+accuracy(predAR, goog_prueba_dif)
+```
+
+Graficamos el resultado.
+
+```{r}
+plotAR <- autoplot(predAR, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10))
+
+plotARzoom <- autoplot(goog_prueba_dif, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  autolayer(predAR, alpha = .5) +
+  ggtitle("Predicciones vs. valores reales")  +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10)) 
+
+grid.arrange(plotAR, plotARzoom, ncol = 2)
+```
+
+## Residuos
+
+Analicemos si los residuos son ruido blanco.
+
+```{r}
+
+checkresiduals(AR)
+```
+
+Como el $p$-valor del test de Ljung-Box es mayor a $0.05$, no hay evidencia estadística para rechazar la hipótesis nula de la no correlación, lo que también pude apreciarse a partir del ACF. Del gráfico se observa normalidad de los residuos.
+
+# Modelo de media móvil
+
+## Orden
+
+Calculemos el ACF.
+
+```{r}
+Acf(goog_dif, lag.max = 15, type = "correlation", main = "") 
+```
+
+Se puede observar que a partir del lag 4, los valores comienzan a acercarse significativamente a cero, por lo que 4 es el punto de corte. Esto dice que el orden del modelo MA podría elegirse como $q=4$.
+
+Podemos calcular los valores del criterio de información que Akaike para distintos órdenes del modelo MA.
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+AIC_MA <- vector()
+for (q in 1:15){
+  modelo <- arima(goog_entrenamiento_dif, order = c(0,0,q))
+  AIC_MA[q] <- modelo$aic
+}
+AIC_MA
+```
+
+Calculemos el orden para el cual el valor de AIC es menor y grafiquemos la curva de AIC.
+
+```{r}
+AIC_MA <- data.frame(Órden = 1:15, AIC = AIC_MA)
+minAIC_MA <- filter(AIC_MA, AIC == min(AIC))
+minAIC_MA
+
+ggplot(AIC_MA, aes(x = Órden, y = AIC)) +
+  geom_line(color = "purple") +
+  geom_point(data = minAIC_MA, aes(x = Órden, y = AIC), size = 2, color = "magenta")
+```
+
+Vemos que según este método, el orden 4 es el recomendado.
+
+## Modelo MA
+
+Armamos el modelo MA(4).
+
+```{r}
+MA <- arima(goog_entrenamiento_dif, order = c(0,0,4), method = "ML")
+round(summary(MA)$coef, 4)
+```
+
+El modelo está dado por la ecuación:
+
+$$
+x_t = 0.4348 + \varepsilon_t + 0.0277 \varepsilon_{t-1} -0.0064 \varepsilon_{t-2} -0.0609 \varepsilon_{t-3} - 0.0593 \varepsilon_{t-4}.
+$$
+
+Predecimos con el modelo.
+
+```{r}
+predMA <- forecast(MA, h = 10)
+```
+
+Evaluamos el modelo.
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+accuracy(predMA, goog_prueba_dif)
+```
+
+Graficamos el resultado.
+
+```{r}
+plotMA <- autoplot(predMA, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10))
+
+plotMAzoom <- autoplot(goog_prueba_dif, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  autolayer(predMA, alpha = .5) +
+  ggtitle("Predicciones vs. valores reales")  +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10)) 
+
+grid.arrange(plotMA, plotMAzoom, ncol = 2)
+```
+
+## Residuos
+
+Analicemos si los residuos son ruido blanco.
+
+```{r}
+
+checkresiduals(MA)
+```
+
+Como el $p$-valor del test de Ljung-Box es mayor a $0.05$, no hay evidencia estadística para rechazar la hipótesis nula de la no correlación, lo que también pude apreciarse a partir del ACF. Del gráfico se observa normalidad de los residuos.
+
+# Modelo autorregresivo de media móvil
+
+## Orden
+
+Según lo analizado previamente, vamos a considerar $p=4$ y $q=4$.
+
+## Modelo ARMA
+
+Armamos el modelo ARMA(4, 4).
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+ARMA <- arima(goog_entrenamiento_dif, order = c(4,0,4), method = "ML")
+round(summary(ARMA)$coef, 4)
+```
+
+El modelo está dado por la ecuación:
+
+$$
+x_t = 0.4309 + \varepsilon_t + 0.3513 x_{t-1} + 0.0659 x_{t-2} - 0.2631 x_{t-3} + 0.4331 x_{t-4} \\ - 0.3246 \varepsilon_{t-1} - 0.0792 \varepsilon_{t-2} + 0.1977 \varepsilon_{t-3} - 0.4689 \varepsilon_{t-4}.
+$$
+
+Predecimos con el modelo.
+
+```{r}
+predARMA <- forecast(ARMA, h = 10)
+```
+
+Evaluamos el modelo.
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+accuracy(predARMA, goog_prueba_dif)
+```
+
+Graficamos el resultado.
+
+```{r}
+plotARMA <- autoplot(predARMA, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10))
+
+plotARMAzoom <- autoplot(goog_prueba_dif, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  autolayer(predARMA, alpha = .5) +
+  ggtitle("Predicciones vs. valores reales")  +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10)) 
+
+grid.arrange(plotARMA, plotARMAzoom, ncol = 2)
+```
+
+## Residuos
+
+Analicemos si los residuos son ruido blanco.
+
+```{r}
+
+checkresiduals(ARMA)
+```
+
+Como el $p$-valor del test de Ljung-Box es mayor a $0.05$, no hay evidencia estadística para rechazar la hipótesis nula de la no correlación, lo que también pude apreciarse a partir del ACF. Del gráfico se observa normalidad de los residuos.
+
+# Modelo autorregresivo integrado de media móvil
+
+## Orden
+
+Según lo analizado previamente, vamos a considerar $p=4$ y $q=4$. Además, ya vimos que tenemos que considerar la serie diferenciada para lograr que los datos sean estacionarios, por lo que $d=1$.
+
+## Modelo ARIMA
+
+Armamos el modelo ARIMA(4, 1, 4).
+
+```{r}
+ARIMA <- arima(goog_entrenamiento, order = c(4,1,4), method = "ML")
+round(summary(ARIMA)$coef, 4)
+```
+
+Esta función considera $c=0$. El modelo está dado por la ecuación:
+
+$$
+x'_t = \varepsilon_t + 0.3266 x'_{t-1} + 0.0409 x'_{t-2} -0.2737 x'_{t-3} + 0.4054 x'_{t-4} \\ - 0.2966 \varepsilon_{t-1} - 0.0512 \varepsilon_{t-2} + 0.2111 \varepsilon_{t-3} - 0.4396 \varepsilon_{t-4}.
+$$
+
+Predecimos con el modelo.
+
+```{r}
+predARIMA <- forecast(ARIMA, h = 10)
+```
+
+Evaluamos el modelo.
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+accuracy(predARIMA, goog_prueba)
+```
+
+Graficamos el resultado.
+
+```{r}
+plotARIMA <- autoplot(predARIMA, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10))
+
+plotARIMAzoom <- autoplot(goog_prueba, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  autolayer(predARIMA, alpha = .5) +
+  ggtitle("Predicciones vs. valores reales")  +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10)) 
+
+grid.arrange(plotARIMA, plotARIMAzoom, ncol = 2)
+```
+
+## Residuos
+
+Analicemos si los residuos son ruido blanco.
+
+```{r}
+
+checkresiduals(ARIMA)
+```
+
+Como el $p$-valor del test de Ljung-Box es mayor a $0.05$, no hay evidencia estadística para rechazar la hipótesis nula de la no correlación, lo que también pude apreciarse a partir del ACF. Del gráfico se observa normalidad de los residuos.
+
+## ARIMA automático
+
+R ofrece una manera de realizar ARIMA de manera automática; es decir, sin la necesidad de elegir los parámetros.
+
+Armamos el modelo ARIMA de manera automática.
+
+```{r}
+autoARIMA <- auto.arima(goog_entrenamiento)
+summary(autoARIMA)
+```
+
+Vemos que se obtiene $p=0$, $d=1$ y $q=0$.
+
+Predecimos con el modelo.
+
+```{r}
+pred_autoARIMA <- forecast(autoARIMA, h = 10)
+```
+
+Evaluamos el modelo.
+
+```{r}
+options(width = 80) # mejora la visual de la salida
+
+accuracy(pred_autoARIMA, goog_prueba)
+```
+
+Graficamos el resultado.
+
+```{r}
+plot_autoARIMA <- autoplot(pred_autoARIMA, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10))
+
+plot_autoARIMAzoom <- autoplot(goog_prueba, xlab = "Tiempo", ylab = "Precios diferenciados", size = 1) +
+  autolayer(pred_autoARIMA, alpha = .5) +
+  ggtitle("Predicciones vs. valores reales")  +
+  theme_hc() +
+  theme(plot.title = element_text(size = 10, hjust = 0.5),
+        axis.title = element_text(size = 10),
+        axis.text = element_text(size = 10)) 
+
+grid.arrange(plot_autoARIMA, plot_autoARIMAzoom, ncol = 2)
+```
+
+## Residuos
+
+Analicemos si los residuos son ruido blanco.
+
+```{r}
+
+checkresiduals(autoARIMA)
+```
+
+Como el $p$-valor del test de Ljung-Box es mayor a $0.05$, no hay evidencia estadística para rechazar la hipótesis nula de la no correlación, lo que también pude apreciarse a partir del ACF. Del gráfico se observa normalidad de los residuos.
+
+# Mejor modelo
+
+Hemos calculado un conjunto de modelos. Sin embargo, ¿cómo podemos elegir el mejor para predecir el precio de cierre de las acciones de GOOG?
+
+Comparemos los valores de AIC, RMSE y MAPE obtenidos en cada caso.
+
+```{r}
+Modelo <- c("SES", "AR(4)", "MA(4)", "ARMA(4,4)", "ARIMA(4,1,4)", "AutoARIMA")
+
+AIC <- c(summary(ses_opt)$model$aic, AR$aic, MA$aic, ARMA$aic, ARIMA$aic, autoARIMA$aic)
+
+RMSE <- c(accuracy(ses_opt, goog_prueba_dif)[2,2],
+  accuracy(predAR, goog_prueba_dif)[2,2],
+  accuracy(predMA, goog_prueba_dif)[2,2],
+  accuracy(predARMA, goog_prueba_dif)[2,2],
+  accuracy(predARIMA, goog_prueba)[2,2],
+  accuracy(pred_autoARIMA, goog_prueba)[2,2])
+
+MAPE <- c(accuracy(ses_opt, goog_prueba_dif)[2,5],
+  accuracy(predAR, goog_prueba_dif)[2,5],
+  accuracy(predMA, goog_prueba_dif)[2,5],
+  accuracy(predARMA, goog_prueba_dif)[2,5],
+  accuracy(predARIMA, goog_prueba)[2,5],
+  accuracy(pred_autoARIMA, goog_prueba)[2,5])
+
+data.frame(Modelo = Modelo, AIC = AIC, RMSE = RMSE, MAPE = MAPE)
+```
+
+En cuanto al RMSE de los modelos, hay que tener cuidado porque al trabajar con los datos luego de aplicar diferenciación se pierde un valor en el conjunto de prueba, además los valores de la serie de tiempo no son los mismos. En la tabla lo ponemos por completitud, pero no es una medida comparable entre todos los modelo analizados.
+
+En términos de AIC, vemos que el suavizado exponencial simple tiene un valor considerablemente superior al resto de los modelo, siendo ARIMA(0,1,0) el modelo con AIC mínimo. Sin embargo, con el modelo ARIMA personalizado, logramos reducir los valores de RMSE y de MAPE.
+
+Observar que como el largo de la serie es un número grande, el AIC corregido no será muy diferente de AIC. Igualmente, realicemos los cálculos para los modelos ARIMA(4,1,4) y ARIMA(0,1,0).
+
+```{r}
+# Definimos una función para calcuar el AIC corregido para c=0
+AICc <- function(aic, n, p, q){
+  return(aic + (2 * (p + q + 1) * (p + q + 2)) / (n - p - q - 2))
+}
+```
+
+```{r}
+ModeloARIMA <- c("ARIMA(4,1,4)", "ARIMA(0,1,0)")
+
+# Calculamos los AIC corregidos 
+AICcorregido <- c(AICc(AIC[5], 990, 4, 4), AICc(AIC[6], 990, 0, 0))
+
+# Armamos la salida
+data.frame(Modelo = ModeloARIMA, AIC = AIC[5:6], AICc = AICcorregido)
+```
+
+# Sugerencia
+
+El paquete `xts` es muy útil para el análisis de serie de tiempo. Para más información, consultar <https://cran.r-project.org/web/packages/xts/index.html>.

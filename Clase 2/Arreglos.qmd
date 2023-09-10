@@ -1,0 +1,145 @@
+---
+title: "Arreglos"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+## Vectores
+
+Creación de vectores.
+
+```{r}
+v1 <- c(1, -2, 0, 4)
+v1
+```
+
+```{r}
+v2 <- 5:8
+v2
+```
+
+```{r}
+v3 <- vector()
+for (i in 1:4){
+  v3[i] <- 2*i
+}
+v3
+```
+
+Suma de vectores
+
+```{r}
+v1
+v2
+v1 + v2
+```
+
+Suma de las componentes de un vector.
+
+```{r}
+v1
+sum(v1)
+```
+
+Producto de las componentes de dos vectores.
+
+```{r}
+v2
+v3
+v2 * v3
+```
+
+Producto escalar (o interno) entre dos vectores.
+
+```{r}
+sum(v2 * v3) # por definición
+v2 %*% v3 # por operador
+```
+
+Ordenamiento de las componentes de un vector.
+
+```{r}
+sort(v1) # orden creciente
+sort(v1, decreasing = TRUE) # orden decreciente
+```
+
+## Matrices
+
+Creación de una matriz.
+
+```{r}
+A <- matrix(c(1,2,3,4), nrow = 2, ncol = 2)
+A
+```
+
+```{r}
+B <- matrix(c(1,2,3,4), nrow = 2, ncol = 2, byrow = TRUE)
+B
+```
+
+```{r}
+B[1,2] # valor de B en la fila 1, columna 2
+B[1,] # primera fila de B
+B[,1] # primera columna de B
+diag(B) # diagonal de B
+```
+
+```{r}
+C <- matrix(nrow = 2, ncol = 3) # matriz vacía
+C
+dim(C) # cantidad de filas y de columnas
+```
+
+```{r}
+n <- dim(C)[1] # cantidad de filas de C
+m <- dim(C)[2] # cantidad de columnas de C
+
+for (i in 1:n){
+  for (j in 1:m){
+    C[i,j] <- j-i
+  }
+}
+C
+```
+
+```{r}
+C[,2:3] # segunda y tercera columna de C
+```
+
+Traspuesta de una matriz.
+
+```{r}
+C
+t(C) # traspuesta de C
+```
+
+Suma de matrices.
+
+```{r}
+A + B
+A + C
+```
+
+Producto por un escalar.
+
+```{r}
+A
+2 * A
+```
+
+Producto matricial.
+
+```{r}
+B %*% C
+C %*% B
+```
+
+Inversa de una matriz.
+
+```{r}
+A1 <- solve(A) # inversa de A
+A1
+
+A %*% A1 # verficación del producto
+```

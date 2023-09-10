@@ -1,0 +1,135 @@
+---
+title: "Distribución Normal Multivariada"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, warning=FALSE}
+library(mvtnorm)
+```
+
+## Distribución Normal bivariada
+
+```{r}
+# Vector de medias
+mu1 <- c(0, 0)
+
+# Matriz de covarianzas
+sigma1 <- matrix(c(1, 0, 0, 1), nrow = 2, ncol = 2, byrow = TRUE)
+
+# Generamos datos normales bivariados 
+x1 <- rmvnorm(n=1000, mean = mu1, sigma = sigma1)
+
+# Graficamos los datos
+plot(x1, col = "violet", pch = 16, asp = 1)
+
+# Graficamos la distribución de cada componente por separado
+hist(x1[,1], col = "purple", nclass = 50)
+hist(x1[,2], col = "pink3", nclass = 50)
+
+```
+
+Podemos observar que los puntos se acumulan en torno al $(0,0)$ y que cada una de las componentes de los datos generados sigue una distribución $\mathcal{N}(0,1)$.
+
+```{r}
+# Vector de medias
+mu2 <- c(0, 0)
+
+# Matriz de covarianzas
+sigma2 <- matrix(c(1, 0.9, 0.9, 1), nrow = 2, ncol = 2, byrow = TRUE)
+
+# Generamos datos normales bivariados 
+x2 <- rmvnorm(n=1000, mean = mu2, sigma = sigma2)
+
+# Graficamos los datos
+plot(x2, col = "violet", pch = 16, asp = 1)
+
+# Graficamos la distribución de cada componente por separado
+hist(x2[,1], col = "purple", nclass = 50)
+hist(x2[,2], col = "pink3", nclass = 50)
+
+```
+
+Al cambiar la matriz de covarianzas, podemos observar la fuerte correlación positiva ($0.9$) entre las componentes de los datos generados en el scatterplot.
+
+```{r}
+# Vector de medias
+mu3 <- c(0, 0)
+
+# Matriz de covarianzas
+sigma3 <- matrix(c(1, -0.9, -0.9, 1), nrow = 2, ncol = 2, byrow = TRUE)
+
+# Generamos datos normales bivariados 
+x3 <- rmvnorm(n=1000, mean = mu3, sigma = sigma3)
+
+# Graficamos los datos
+plot(x3, col = "violet", pch = 16, asp = 1)
+
+# Graficamos la distribución de cada componente por separado
+hist(x3[,1], col = "purple", nclass = 50)
+hist(x3[,2], col = "pink3", nclass = 50)
+```
+
+Al cambiar la matriz de covarianzas, podemos observar la fuerte correlación negativa ($-0.9$) entre las componentes de los datos generados en el scatterplot.
+
+```{r}
+# Vector de medias
+mu4 <- c(1, 2)
+
+# Matriz de covarianzas
+sigma4 <- matrix(c(1, 0, 0, 1), nrow = 2, ncol = 2, byrow = TRUE)
+
+# Generamos datos normales bivariados 
+x4 <- rmvnorm(n=1000, mean = mu4, sigma = sigma4)
+
+# Graficamos los datos
+plot(x4, col = "violet", pch = 16, asp = 1)
+
+# Graficamos la distribución de cada componente por separado
+hist(x4[,1], col = "purple", nclass = 50)
+hist(x4[,2], col = "pink3", nclass = 50)
+```
+
+Podemos observar que los puntos se acumulan en torno al $(1,2)$ y que las componentes de los datos generados siguen una distribución $\mathcal{N}(1,1)$ y $\mathcal{N}(2,1)$, respectivamente.
+
+```{r}
+# Vector de medias
+mu5 <- c(0, 0)
+
+# Matriz de covarianzas
+sigma5 <- matrix(c(1, 0, 0, 5), nrow = 2, ncol = 2, byrow = TRUE)
+
+# Generamos datos normales bivariados 
+x5 <- rmvnorm(n=1000, mean = mu5, sigma = sigma5)
+
+# Graficamos los datos
+plot(x5, col = "violet", pch = 16, asp = 1)
+
+# Graficamos la distribución de cada componente por separado
+hist(x5[,1], col = "purple", nclass = 50)
+hist(x5[,2], col = "pink3", nclass = 50)
+```
+
+Al cambiar las varianzas, podemos observar una mayor dispersión sobre la segunda componente de los datos generados que es, justamente, la de mayor varianza. Por otra parte, este efecto también se ve en las distribuciones de cada una de las componentes de los datos generados.
+
+## Distribución Normal multivariada
+
+```{r, message = FALSE, warning=FALSE}
+library(rgl) # para gráficar en 3D
+```
+
+```{r}
+
+# Generamos datos normales multivariados donde la matriz de covarianzas es la identidad (por default)
+y1 <- rmvnorm(n=1000, mean = c(0, 0, 0))
+
+# Graficamos los datos
+plot3d(y1, col = "violet", pch = 16, asp = 1)
+
+# Graficamos la distribución de cada componente por separado
+hist(y1[,1], col = "purple", nclass = 50)
+hist(y1[,2], col = "pink3", nclass = 50)
+hist(y1[,3], col = "pink", nclass = 50)
+
+```

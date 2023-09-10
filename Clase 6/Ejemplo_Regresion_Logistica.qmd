@@ -1,0 +1,192 @@
+---
+title: "Ejemplo de aplicación: Regresión logística"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+data(PimaIndiansDiabetes2, package = "mlbench")
+```
+
+```{r}
+head(PimaIndiansDiabetes2)
+```
+
+Vemos que hay datos faltantes (`NA`), por lo que vamos a eliminarlos.
+
+```{r}
+Diabetes <- na.omit(PimaIndiansDiabetes2)
+```
+
+```{r}
+str(Diabetes)
+```
+
+Vemos que hay 8 variables numéricas y una variable factor que es *diabetes*.
+
+# Regresión logística simple
+
+Analicemos ahora el caso en que la variable predictora es *glucose* y la variable respuesta es *diabetes*.
+
+Primero binarizamos la variable dependiente.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+```{r}
+DiabetesG <- Diabetes %>%
+  dplyr::select(glucose, diabetes) %>%
+  mutate(p = ifelse(diabetes == "pos", 1, 0))
+
+DiabetesG
+```
+
+Visualicemos el ajuste logístico.
+
+```{r, warning=FALSE}
+library(ggplot2)
+library(ggthemes)
+```
+
+```{r}
+ggplot(data = DiabetesG, aes(x = glucose, y = p)) +
+  geom_point(color = "pink") +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), color = "purple") +
+  xlab("Glucosa en sangre") +
+  ylab("Probabilidad de diagnóstico de diabetes") +
+  theme_hc()
+  
+```
+
+Calculemos el modelo.
+
+```{r}
+log_simple <- glm(formula = diabetes ~ glucose,
+                  data = DiabetesG,
+                  family = "binomial")
+summary(log_simple)
+```
+
+Vemos que la influencia del valor de glucosa en sangre es significativa estadísticamente para el diagnóstico de diabetes.
+
+La ecuación del modelo es:
+
+$$
+p(x)=\frac{\exp(-6.095521 + 0.042421 x)}{1 + \exp(-6.095521 + 0.042421 x)}.
+$$
+
+## Predicciones
+
+Podemos usar la fórmula anterior para estimar la probabilidad de que una persona tenga un diagnóstico positivo de diabetes en función de los niveles de glucosa en sangre.
+
+```{r}
+nuevo_valor <- data.frame(glucose = c(90, 165))
+prob <- log_simple %>% predict(nuevo_valor, type = "response")
+prob
+```
+
+Recordemos que los valores normales de azúcar en la sangre en ayunas de son menores que 99 mg/dl. Si estos valores se encuentran entre 100 y 125 mg/dl, indican prediabetes, mientras que si superan los 126 mg/dl sugieren la presencia de diabetes.
+
+Según el modelo:
+
+-   la probabilidad de que una persona con un valor de glucosa igual a 90 tenga diabetes es muy baja (`0.093`).
+
+-   la probabilidad de que una persona con un valor de glucosa igual a 165 tenga diabetes es relativamente alta (`0.712`).
+
+## Clasificación
+
+De acuerdo a lo anterior podríamos definir una regla de clasificación para la diagnóstico de diabetes en una persona a partir del nivel de glucosa en sangre, dada por:
+
+$$
+\text{Diagnóstico de diabetes} = \begin{cases}
+\text{positivo} & \text{si $p > 0.5$,} \\
+\text{negativo} & \text{si $p \le 0.5$.}
+\end{cases}
+$$
+
+```{r}
+# Programamos la regla
+diag_diabetes <- function(gl){
+  gl <- data.frame(glucose = gl)
+  p <- log_simple %>% predict(gl, type = "response")
+  diag <- ifelse(p > 0.5, "Positivo", "Negativo")
+  return(diag)
+}
+```
+
+Veamos el resultado del diagnóstico para distintos valores de glucosa.
+
+```{r}
+# Valor muy bajo
+diag_diabetes(30)
+
+# Valor normal
+diag_diabetes(97)
+
+# Valor de prediabetes
+diag_diabetes(111)
+
+# Valor alto
+diag_diabetes(150)
+
+# Valor muy alto
+diag_diabetes(210)
+```
+
+Vemos que detecta bien los casos positivos con valores de glucosa altos, así como los casos negativos con valores de glucosa bajo. Sin embargo, hay que tener cuidado con los casos de prediabetes que los clasifica como negativos.
+
+# Regresión logística múltiple
+
+Supongamos ahora que queremos estudiar la influencia de la insulina (*insulin*), el índice de masa corporal (*mass*) y la concentración de glucosa (*glucose*), en el diagnóstico de diabetes.
+
+Armamos el modelo.
+
+```{r}
+log_mult <- glm(formula = diabetes ~ insulin + mass + glucose,
+                  data = Diabetes,
+                  family = "binomial")
+summary(log_mult)
+```
+
+Con una significancia estadística (\*\*\*), vemos que el diagnóstico de diabetes está asociado tanto el nivel de glucosa como el índice de masa corporal. Sin embargo, la insulina no tendría mucho efecto en este diagnóstico.
+
+La ecuación del modelo es:
+
+$$
+P[D/(i,m,g)] =\frac{\exp(-8.4607 - 0.0008 \cdot \text{insuline} + 0.0739 \cdot \text{mass} + 0.0424 \cdot \text{glucose})}{1 + \exp(-8.4607 - 0.0008 \cdot \text{insuline} + 0.0739 \cdot \text{mass} + 0.0424 \cdot \text{glucose})}.
+$$
+
+## Predicciones
+
+Al igual que en el caso de regresión logística simple, podemos usar la fórmula anterior para estimar la probabilidad de que una persona tenga un diagnóstico positivo de diabetes en función la insulina, el índice de masa corporal y los niveles de glucosa en sangre.
+
+```{r}
+nuevos_valores <- data.frame(insulin = c(90, 5),
+                             mass = c(20, 35),
+                             glucose = c(90, 195))
+probM <- log_mult %>% predict(nuevos_valores, type = "response")
+probM
+```
+
+Recordemos que los valores normales del índice de masa corporal varían entre 18.5 y 24.9. Los valores normales de insulina se entre 60 y 100 mg/dl.
+
+Según el modelo:
+
+-   la probabilidad de que una persona con valores normales de las tres variables consideradas tenga diabetes es muy baja (`0.038`).
+
+-   la probabilidad de que una persona con valores fuera de los rangos normales de las variables consideradas tenga diabetes es muy alta (`0.916`).
+
+¿Qué sucede si armamos un modelo con todas las variables disponibles?
+
+```{r}
+reg_log <- glm(formula = diabetes ~ .,
+               data = Diabetes, 
+               family = "binomial") 
+summary(reg_log)
+```
+
+Si observamos la columna `Pr(>|z|)`, vemos que sólo tres de las ocho variables están significativamente asociadas con el diagnóstico de diabetes. Esta variables son: el valor de glucosa en sangre, el índice de masa corporal y la función pedigrí de diabetes. Como los coeficientes de regresión para estas variables son positivos, un incremento positivo en los valores de estas variables aumenta la probabilidad de un diagnóstico positivo de diabetes.
+
+Aquellas variables que no son estadísticamente significativas debieran eliminarse del modelo de regresión, puesto que las mismas podrían conducir a una sobre estimación.

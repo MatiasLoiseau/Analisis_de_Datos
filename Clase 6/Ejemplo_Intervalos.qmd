@@ -1,0 +1,181 @@
+---
+title: "Ejemplo de aplicación: Intervalos de confianza y de predicción"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+data(cars)
+```
+
+Vamos a trabajar con las siguientes variables:
+
+-   *speed*: velocidad medida en millas por hora;
+
+-   *dist*: distancia de frenado en pies.
+
+Transformemos las unidades.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+```{r}
+autos <- cars %>%
+  mutate(Velocidad = speed * 1.609,
+         Frenado = dist / 3.281) %>%
+  dplyr::select(Velocidad, Frenado)
+
+head(autos)
+```
+
+Las nuevas variables son:
+
+-   *Velocidad*: velocidad medida en kilómetros por hora;
+
+-   *Frenado*: distancia de frenado en metros.
+
+## Visualización
+
+Vamos a graficar los puntos junto con la línea de regresión.
+
+```{r}
+library(ggplot2)
+library(ggthemes)
+```
+
+```{r}
+ggplot(data = autos, aes(x = Velocidad, y = Frenado)) +
+  geom_point(color = "pink") +
+  geom_smooth(method = lm, color = "purple") +
+  xlab("Velocidad (kmm/h)") +
+  ylab("Distancia de frenado (m)") +
+  theme_hc()
+
+```
+
+## Modelo de regresión lineal
+
+```{r}
+modelo <- lm(formula = Frenado ~ Velocidad, data = autos)
+summary(modelo)
+```
+
+Podemos observar que hay evidencia estadística para concluir que la velocidad tiene una relación directa en la distancia de frenado.
+
+## Intervalo de confianza de los coeficientes de regresión
+
+```{r}
+confint(modelo)
+```
+
+Podemos decir con una nivel de confianza del $95\%$ que el intervalo $(0.586643, 0.9031515)$ contiene a la pendiente de la recta de ajuste. Recordemos que la estimación es de $0.7449$.
+
+## Intervalos de confianza
+
+Recordemos que las predicciones deben realizarse sobre valores en el rango de las observaciones.
+
+```{r}
+min(autos$Velocidad)
+max(autos$Velocidad)
+```
+
+Calculemos el intervalo de confianza de la distancia de frenado promedio para una velocidad igual a 40 km/h.
+
+```{r}
+obs <- data.frame(Velocidad = 40) # la nueva observación debe ser un data.frame
+predict(modelo, newdata = obs, interval = "confidence")
+```
+
+Podemos concluir con una confianza del $95\%$ que la distancia de frenado promedio a una velocidad de 40 km/h es de 24.44 metros, con un intervalo de confianza de $(21.69, 27.19)$ metros.
+
+## Intervalos de predicción
+
+```{r}
+predict(modelo, newdata = obs, interval = "prediction")
+```
+
+La distancia de frenado a una velocidad de 40 km/h se estima en 24.44 metros, con un intervalo de confianza del $95\%$ igual a $(14.62, 34.26)$ metros. Podemos observar que el intervalo de confianza de la predicción es más ancho que el intervalo de confianza de la media.
+
+Visualicemos los resultados.
+
+```{r, message=FALSE, warning=FALSE}
+library(HH)
+```
+
+```{r}
+ci.plot(modelo, main = "")
+```
+
+Podemos ver las observaciones en azul, la recta de regresión en rosa, el intervalo de confianza en verde y el intervalo de predicción en rojo.
+
+## $R^2$ de predicción
+
+Vamos a programar el algoritmo.
+
+```{r}
+# Inicializamos el vector que guardará los cuadrados residuales de las predicciones
+PRES <- vector()
+
+# Guardamos la cantidad de observaciones
+n <- dim(autos)[1] 
+
+for (i in 1:n){
+  # Eliminamos la fila i
+  autos_1 <- autos[-i,] 
+  
+  # Calculamos el modelo con las observaciones restantes 
+  rm <- lm(formula = Frenado ~ Velocidad, data = autos_1)
+  
+  # Predecimos para la observación eliminada
+  x_new <- data.frame(Velocidad = autos[i,1])
+  y_pred <- predict(rm, newdata = x_new)
+  
+  # Agregamos cuadrado residual de la predicción
+  PRES[i] <- (autos[i,2] - y_pred)^2
+}
+
+# Calculamos la suma de cuadrados residual de predicciones
+PRESS <- sum(PRES)
+
+# Calculamos la suma de cuadrados de los errores
+SSE <- sum(modelo$residuals^2)
+
+# Calculamos la suma de cuadrados de la regresión
+SSR <- sum((modelo$fitted.values - mean(autos$Frenado))^2)
+
+# Calculamos la suma de cuadrados total
+SST <- SSE + SSR
+
+# Calculamos R2 de la predicción
+R2_pred <- 1 - PRESS / SST
+R2_pred
+```
+
+Vemos que $R^2_{\text{pred}} = 0.621$, mientras que $R^2=0.6511$. El $R^2$ de la predicción es menor, pero no considerablemente.
+
+## Regresión lineal múltiple
+
+En el caso de regresión lineal múltiple, se procede de manera análoga.
+
+```{r}
+data("mtcars") # cargamos base de datos
+modelo_mult <- lm(formula = mpg ~ hp + wt, data = mtcars) # hallamos el modelo
+c(min(mtcars$hp), max(mtcars$hp)) # rango de la variable hp (caballos de fuerza)
+c(min(mtcars$wt), max(mtcars$wt)) # rango de la variable wt (peso en miles de libras)
+```
+
+Hallamos los intervalos de confianza de los coeficientes de regresión.
+
+```{r}
+confint(modelo_mult)
+```
+
+Para una nueva observación, hallamos los intervalos de confianza y de predicción.
+
+```{r}
+nueva_obs <- data.frame(hp = 150, wt = 4)
+predict(modelo_mult, newdata = nueva_obs, interval = "confidence")
+predict(modelo_mult, newdata = nueva_obs, interval = "prediction")
+```

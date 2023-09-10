@@ -1,0 +1,110 @@
+---
+title: "Ejemplo de aplicación: Regresión lineal y ANOVA"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r}
+data("chickwts")
+```
+
+```{r}
+# Exploramos los datos
+help(chickwts)
+str(chickwts)
+```
+
+```{r}
+# Veamos los tipos de alimentos
+levels(chickwts$feed)
+```
+
+```{r}
+# Traducimos al castellano
+levels(chickwts$feed) <- c("Caseína", "Habas", "Linaza", "Carne", "Soja", "Girasol")
+```
+
+Grafiquemos los pesos de las gallinas según el tipo de alimento.
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+ggplot(data = chickwts, aes(x = feed, y = weight, fill = feed)) +
+  geom_boxplot() +
+  xlab("Tipo de alimento") +
+  ylab("Peso (en gramos)") +
+  theme(legend.position = "none")
+```
+
+Calculemos las medias de las propinas por día.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+```{r}
+chickwts %>%
+  group_by(feed) %>%
+  summarise(Medias = mean(weight))
+```
+
+Pareciera ser que alimentar a las gallinas con girasol o caseína aumenta considerablemente su peso. Por el contrario, alimentarlas con habas reduce considerablemente su peso.
+
+## ANOVA de un factor
+
+Realicemos un ANOVA para ver si hay diferencias significativas entre las medias de las pesos de las gallinas según el tipo de alimento suministrado. Para ello, chequeemos los supuesto de normalidad y homocedasticidad. La independencia se garantiza por tener datos de distintas gallinas.
+
+```{r, message=FALSE}
+library(nortest)
+```
+
+```{r}
+# Normalidad
+shapiro.test(chickwts$weight)
+lillie.test(chickwts$weight)
+
+# Homocedasticidad
+leveneTest(data = chickwts, y = chickwts$weight, group = chickwts$feed)
+```
+
+Como todos los $p$-valores son superiores a $0.05$, hay evidencia estadística significativa para no rechazar los supuestos.
+
+```{r}
+# Excluimos el término independiente restando 1 en la fórmula
+aov_gallina <- aov(formula = weight ~ feed - 1,
+                   data = chickwts)
+```
+
+Vemos el resultado.
+
+```{r}
+summary(aov_gallina)
+```
+
+Hay evidencia estadística para concluir que los pesos promedio de las gallinas varían según el tipo de alimento. ¿Pero entre qué tipo de alimentos es diferente?
+
+```{r}
+TukeyHSD(aov_gallina, "feed")
+```
+
+Vemos los $p$-valores mayores que $0.05$, por lo que las medias de los pesos que no son estadísticamente diferentes se dan entre los siguientes pares de alimentos: Carne-Caseína, Girasol-Caseína, Linaza-Habas, Carne-Linaza, Soja-Linaza, Soja-Carne, Girasol-Carne. Las mayores diferencias las podemos observar entre girasol y habas (`168.72`) y entre habas y caseína (`-163.38`). Por otra parte, la menor diferencia se registra entre girasol y caseína (`5.33`).
+
+## Regresión lineal
+
+Aplicamos un modelo de regresión lineal.
+
+```{r}
+reg_gallinas <- lm(formula = weight ~ feed - 1, # -1 para que la recta de regresión pase por el origen
+                   data = chickwts) 
+```
+
+Vemos el resultado.
+
+```{r}
+summary(reg_gallinas)
+```
+
+Podemos observar que el valor del estadístico $F$ es $281.4$ con $6$ y $65$ grados de libertad en ambos casos.

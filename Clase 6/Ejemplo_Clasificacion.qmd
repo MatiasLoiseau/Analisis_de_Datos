@@ -1,0 +1,296 @@
+---
+title: "Ejemplo de aplicación: Clasificación"
+author: "Dra. Andrea A. Rey"
+format: pdf
+editor: visual
+---
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+```{r}
+data(HeartDisease.cat, package = "MixAll")
+data(HeartDisease.cont, package = "MixAll")
+data(HeartDisease.target, package = "MixAll")
+```
+
+Combinamos todas las bases de datos en una sola.
+
+```{r}
+cardio <- cbind(HeartDisease.cat, HeartDisease.cont, HeartDisease.target)
+```
+
+Inspeccionamos la nueva base de datos. Para una información detallada de los atributos, consultar <https://archive.ics.uci.edu/ml/datasets/heart+disease>.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+glimpse(cardio)
+```
+
+Analizamos si hay datos faltantes.
+
+```{r}
+which(is.na(cardio))
+```
+
+Vamos a eliminar los datos faltantes.
+
+```{r}
+cardio <- na.omit(cardio)
+```
+
+Vamos a generar una variable binaria que indique la presencia o ausencia de una enfermedad cardíaca en función de la variable *num*. Esta nueva variable, llamada *Enfermedad*, estará dividida en dos clases: **P** si la persona tiene enfermedades cardíacas y **N** si no las tiene.
+
+```{r}
+cardio <- cardio %>%
+  mutate(Enfermedad = as.factor(ifelse(num > 0, "P", "N")))
+
+head(cardio)
+```
+
+Como la variable Enfermedad se definió a partir de la variable *num*, vamos a eliminar esta última de nuestro conjunto de datos.
+
+```{r}
+cardio <- cardio %>% 
+  dplyr::select(-num)
+```
+
+## Conjuntos de entrenamiento y prueba
+
+Al analizar el desempeño de un clasificador, necesitamos y conjunto de datos para entrenarlo y un conjunto de datos para testearlo. Vamos a usar un $80\%$ de los datos para entrenar y el resto para testear.
+
+```{r, message=FALSE, warning=FALSE}
+library(caret)
+```
+
+```{r}
+set.seed(1911)
+
+muestras <- cardio$Enfermedad %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+
+entrenamiento <- cardio[muestras,]
+prueba <- cardio[-muestras,]
+```
+
+## Modelo de regresión logística
+
+Vamos a definir primero el modelo con los datos del conjunto de entrenamiento y usando todas las variables disponibles.
+
+```{r}
+reg_log_completo <- glm(formula = Enfermedad ~ .,
+                        data = entrenamiento,
+                        family = binomial)
+
+summary(reg_log_completo)
+```
+
+Podemos observar que las variables con significancia estadística en la presencia de enfermedades cardíacas son: el sexo (*sex*), el tipo de dolor en el pecho (*cp*), el número de vasos principales coloreados por fluoroscopía (*ca*), el grado de talasemia -desorden en la sangre- (*thal*) y la cantidad de colesterol en mg/dl (*chol*). Por lo que vamos a construir un modelo logístico basado en estos atributos.
+
+```{r}
+reg_log <- glm(formula = Enfermedad ~ sex + cp + ca + thal + chol,
+               data = entrenamiento,
+               family = binomial)
+
+summary(reg_log)
+```
+
+## Predicciones
+
+Vamos a usar el modelo de regresión logística para predecir la presencia de enfermedades cardíacas usando el conjunto de prueba.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+predicciones <- predict(reg_log, prueba, type = "response")
+
+predicciones
+```
+
+Recordemos que el modelo logístico predice probabilidades, por lo que vamos a convertirlas en clases.
+
+```{r}
+options(width = 80) # (mejora visual de la salida)
+
+clases_pred <- as.factor(ifelse(predicciones > 0.5, "P", "N"))
+
+clases_pred
+```
+
+## Matriz de confusión
+
+Con el fin de evaluar el rendimiento del clasificador creado, vamos a calcular la matriz de confusión entre los valores verdaderos y los valores predicho de la variable *Enfermedad* para el grupo de prueba.
+
+```{r}
+MC <- confusionMatrix(clases_pred, reference = prueba$Enfermedad)
+
+MC$table
+```
+
+Vemos que del total de 32 personas sin enfermedades cardíacas, 24 fueron correctamente clasificadas mientras que 8 fueron mal clasificadas como personas con enfermedades cardíacas. En cuanto a las 27 personas con enfermedades cardíacas, sólo 4 fueron mal clasificadas como personas sin enfermedades cardíacas.
+
+## Medidas
+
+Vamos a calcular algunas medidas a partir de la matriz de confusión.
+
+[**Sensibilidad**]{.underline}
+
+```{r}
+MC$byClass[1]
+```
+
+Vemos que el modelo detecta correctamente a las personas con enfermedades coronarias en un $75\%$.
+
+[**Especificidad**]{.underline}
+
+```{r}
+MC$byClass[2]
+```
+
+Vemos que el modelo detecta correctamente a las personas sin enfermedades coronarias en un $85\%$.
+
+[**Exactitud**]{.underline}
+
+```{r}
+MC$overall[1]
+```
+
+Vemos que el modelo predice correctamente en casi el $80\%$ de los casos.
+
+[**Exactitud balanceada**]{.underline}
+
+```{r}
+
+prueba %>%
+  group_by(Enfermedad) %>%
+  summarise(Cantidad = n())
+
+MC$byClass[11]
+```
+
+Puesto que las clases están medianamente balanceadas, 32 N y 27 P, no hay mucha diferencia entre la exactitud balanceada y la exactitud global.
+
+[**Precisión**]{.underline}
+
+```{r}
+MC$byClass[5]
+```
+
+Vemos que el modelo detecta correctamente la presencia de enfermedades coronarias en casi un $86\%$.
+
+[**F1-score**]{.underline}
+
+```{r}
+MC$byClass[7]
+```
+
+Vemos que el modelo tiene un valor de F1 relativamente alto.
+
+## Validación cruzada $k$-fold
+
+Elegimos el método de validación cruzada.
+
+```{r}
+set.seed(1911)
+
+controlVCk <- trainControl(method = "cv", number = 4)
+```
+
+Ajustamos el modelo de regresión usando validación cruzada $k$-fold para evaluar su rendimiento.
+
+```{r}
+modeloVCk <- train(Enfermedad ~ sex + cp + ca + thal + chol,
+                 data = cardio, 
+                 trControl = controlVCk,
+                 method = "glm", 
+                 family = binomial()
+                 )
+```
+
+Vemos la exactitud del modelo.
+
+```{r}
+modeloVCk$results$Accuracy
+```
+
+Obtenemos un valor bastante bueno de exactitud, un poco más del $81\%$ de acierto.
+
+La validación cruzada elige los folds de manera aleatoria por lo que podemos repetir el proceso, definiendo un nuevo criterio de control
+
+```{r}
+set.seed(1911)
+
+controlVCkR <- trainControl(method = "repeatedcv", number = 4, repeats = 10)
+```
+
+Entrenamos el modelo.
+
+```{r}
+modeloVCkR <- train(Enfermedad ~ sex + cp + ca + thal + chol,
+                 data = cardio, 
+                 trControl = controlVCkR,
+                 method = "glm", 
+                 family = binomial()
+                 )
+```
+
+Vemos la exactitud del modelo.
+
+```{r}
+modeloVCkR$results$Accuracy
+```
+
+Obtenemos un valor de exactitud similar, casi un $83\%$ de acierto.
+
+## Validación cruzada $N$-fold
+
+Elegimos el método de validación cruzada.
+
+```{r}
+set.seed(1911)
+
+N <- dim(cardio)[1]
+controlVCN <- trainControl(method = "cv", number = N)
+```
+
+Ajustamos el modelo de regresión usando validación cruzada $N$-fold para evaluar su rendimiento.
+
+```{r}
+modeloVCN <- train(Enfermedad ~ sex + cp + ca + thal + chol,
+                 data = cardio, 
+                 trControl = controlVCN,
+                 method = "glm", 
+                 family = binomial()
+                 )
+```
+
+Vemos la exactitud del modelo.
+
+```{r}
+modeloVCN$results$Accuracy
+```
+
+Obtenemos un valor bastante bueno de exactitud, un poco más del $83\%$ de acierto.
+
+## Bootstrap
+
+Procedemos de manera análoga a los casos anteriores.
+
+```{r}
+set.seed(1911)
+
+controlB <- trainControl(method = "boot", number = 100)
+modeloB <- train(Enfermedad ~ sex + cp + ca + thal + chol,
+                 data = cardio, 
+                 trControl = controlB,
+                 method = "glm", 
+                 family = binomial()
+                 )
+modeloB$results$Accuracy
+```
+
+Obtenemos casi un $82\%$ de acierto.
+
+Podemos concluir que el valor de exactitud del modelo de regresión logística planteado está alrededor del $81-82\%$, como pudo apreciarse aplicando varias técnicas de evaluación del rendimiento de un clasificador.
